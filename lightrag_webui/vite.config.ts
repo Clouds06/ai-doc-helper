@@ -42,6 +42,10 @@ export default defineConfig({
                 (path) => path : undefined
           }
         ])
-      ) : {}
-  }
+      ) : {},
+      watch: {
+        usePolling: true,
+        interval: 100,
+      },
+  },
 })
