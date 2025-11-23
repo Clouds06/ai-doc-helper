@@ -1,0 +1,11 @@
+[general]
+contrib=contrib-title-conventional-commits
+
+[contrib-title-conventional-commits]
+types=feat,fix,docs,style,refactor,perf,test,chore,revert,build
+
+[title-max-length]
+line-length=100
+
+[title-must-not-contain-word]
+words=wip,WIP,todo,TODO
