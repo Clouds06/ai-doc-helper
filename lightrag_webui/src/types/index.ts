@@ -5,7 +5,7 @@ export type Tab = 'home' | 'documents' | 'chat'
 
 export interface Scenario {
     id: number
-    icon: string  // 改为string类型
+    icon: string  // 确保是string类型
     title: string
     query: string
     desc: string
