@@ -165,3 +165,32 @@ export const getSampleStatus = (metrics: RagasMetrics): 'pass' | 'fail' => {
   const rg = metrics.answer_relevance ?? 0;
   return aa >= 0.7 && rg >= 0.8 ? 'pass' : 'fail';
 };
+
+// 根据温度值和 chunkTopK 值，返回对应的标签文本和颜色样式
+export const getTempLabel = (val: number) => {
+  if (val <= 0.3)
+    return { text: '严谨精确', color: 'bg-blue-100 text-blue-700' };
+  if (val <= 0.7)
+    return { text: '平衡标准', color: 'bg-green-100 text-green-700' };
+  return { text: '发散创意', color: 'bg-purple-100 text-purple-700' };
+};
+export const getChunkLabel = (val: number) => {
+  if (val < 10)
+    return { text: '极速模式', color: 'bg-yellow-100 text-yellow-700' };
+  if (val <= 30)
+    return { text: '平衡模式', color: 'bg-blue-100 text-blue-700' };
+  return { text: '高召回模式', color: 'bg-indigo-100 text-indigo-700' };
+};
+
+export function isNameExist(name: string, names: string[]) {
+  return names.includes(name);
+}
+
+// 格式化文件大小为 B/KB/MB/GB
+export const formatFileSize = (bytes: number) => {
+  if (bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return `${(bytes / Math.pow(k, i)).toFixed(1)} ${sizes[i]}`;
+};

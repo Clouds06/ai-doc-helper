@@ -7,8 +7,8 @@ import { TopNavbar } from './components/common/TopNavbar';
 import { HomePage } from './pages/HomePage';
 import { ChatView } from './pages/ChatView';
 import { DocumentsView } from './pages/DocumentsView';
-import { useRagStore } from './stores/useRagStore';
-import { useUploadStore } from '@/stores/useUploadStore';
+import { useRagStore } from './hooks/useRagStore';
+import { useUploadStore } from '@/hooks/useUploadStore';
 import { sanitizeQuery } from './lib/utils';
 
 export default function App() {

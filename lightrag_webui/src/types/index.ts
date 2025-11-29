@@ -1,6 +1,10 @@
 import React from 'react';
 
 export type Tab = 'home' | 'documents' | 'chat';
+export type CardTab = {
+  id: string;
+  label: string;
+};
 
 export interface Scenario {
   id: number;

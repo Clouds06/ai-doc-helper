@@ -1,15 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
-import {
-  ChevronDown,
-  Save,
-  Trash2,
-  FilePlus2,
-  AlignLeft,
-  Eraser,
-  HelpCircle,
-} from 'lucide-react';
+import { ChevronDown, Save, Trash2, FilePlus2, AlignLeft, Eraser } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { PROMPT_PRESETS } from '../../lib/constants';
+import { Tooltip } from '../common/Tooltip';
+import { isNameExist } from '@/lib/utils';
 
 const CUSTOM_STORAGE_KEY = 'rag_custom_prompts_v1';
 
@@ -160,7 +154,7 @@ const PromptPanel: React.FC<PromptPanelProps> = ({ value, onChange }) => {
     const allNames = [...customTemplates, ...presetTemplates].map((tpl) =>
       tpl.label.trim(),
     );
-    if (allNames.includes(trimmedName)) {
+    if(isNameExist(trimmedName, allNames)) {
       setNameError('已存在同名模版，请换一个名字');
       return;
     }
@@ -292,7 +286,7 @@ const PromptPanel: React.FC<PromptPanelProps> = ({ value, onChange }) => {
                       {tpl.label}
                     </span>
                     {tpl.desc && (
-                      <TooltipIcon text={tpl.desc} />
+                      <Tooltip text={tpl.desc} />
                     )}
                   </button>
                 ))}
@@ -318,7 +312,7 @@ const PromptPanel: React.FC<PromptPanelProps> = ({ value, onChange }) => {
                   <span className="text-xs font-medium text-gray-800 truncate">
                     {tpl.label}
                   </span>
-                  {tpl.desc && <TooltipIcon text={tpl.desc} />}
+                  {tpl.desc && <Tooltip text={tpl.desc} />}
                 </button>
               ))}
             </div>
@@ -400,17 +394,5 @@ const PromptPanel: React.FC<PromptPanelProps> = ({ value, onChange }) => {
     </div>
   );
 };
-
-function TooltipIcon({ text }: { text: string }) {
-  return (
-    <div className="relative group/tooltip flex-shrink-0 ml-2">
-      <HelpCircle className="w-3 h-3 text-gray-300 group-hover/tooltip:text-indigo-500 transition-colors" />
-      <div className="pointer-events-none absolute left-1/2 top-full mt-1 -translate-x-1/2 px-2 py-1 bg-gray-900 text-[10px] text-white rounded shadow-lg opacity-0 group-hover/tooltip:opacity-100 whitespace-normal max-w-[220px] z-10">
-        {text}
-        <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 rotate-45 bg-gray-900" />
-      </div>
-    </div>
-  );
-}
 
 export default PromptPanel;

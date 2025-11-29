@@ -1,7 +1,7 @@
 import { useState, FormEvent, KeyboardEvent } from 'react';
 import { ImageIcon, FileText, Mic, Globe, ChevronDown, ArrowRight } from 'lucide-react';
 import { useTypewriterLoop } from '@/hooks/useTypewriter';
-import { useUploadStore } from '@/stores/useUploadStore';
+import { useUploadStore } from '@/hooks/useUploadStore';
 import { PLACEHOLDER_LOOP_WORDS } from '@/data/mock';
 
 interface HeroSearchCardProps {
