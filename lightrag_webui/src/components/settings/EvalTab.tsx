@@ -19,8 +19,9 @@ export const EvalTab: React.FC<EvalTabProps> = ({
   onStartEvaluation,
   hasEvaluated,
   lastEvalParams,
-  isEvalButtonDisabled,
+  isEvalButtonDisabled
 }) => {
+
   // has not evaluated yet
   if (!hasEvaluated && evalState === 'idle') {
     return <EvalButton onStartEvaluation={onStartEvaluation} />;

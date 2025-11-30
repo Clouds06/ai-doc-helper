@@ -52,7 +52,6 @@ export const InnerFileUploader = ({
             {...getRootProps()}
             className={cn(
               'border-2 border-dashed rounded-xl p-8 grid place-items-center cursor-pointer transition-all',
-              // 优化：微调了 hover 状态的背景色，使其更融合
               'hover:border-blue-400 hover:bg-blue-50/50',
               disabled && 'opacity-50 cursor-not-allowed',
             )}
@@ -78,7 +77,6 @@ export const InnerFileUploader = ({
               key={file.name + idx}
               className={cn(
                 'flex items-center p-3 rounded-lg border transition-all',
-                // 优化：统一背景为白色，错误时才变红，悬浮时增加轻微阴影
                 error
                   ? 'border-red-200 bg-red-50/30'
                   : 'bg-white border-gray-100 hover:border-blue-200 hover:shadow-sm',
@@ -98,7 +96,6 @@ export const InnerFileUploader = ({
               <div className="flex-1 min-w-0">
                 <div className="flex justify-between text-sm font-medium mb-1">
                   <span className="truncate text-gray-700">{file.name}</span>
-                  {/* ✨ 优化：使用 formatFileSize 显示正确单位 */}
                   <span className="text-xs text-gray-400 font-normal ml-2">
                     {formatFileSize(file.size)}
                   </span>

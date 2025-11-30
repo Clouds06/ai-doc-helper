@@ -1,20 +1,22 @@
-// src/store/useRagStore.ts
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { DEFAULT_SYSTEM_PROMPT } from '@/lib/constants';
+import type { RagEvalResult } from '@/api/lightrag';
+
+export interface RagEvalState {
+  evalResult: RagEvalResult | null;      // 当前评测结果
+  prevEvalResult: RagEvalResult | null;  // 上一次评测结果
+
+  setEvalResult: (result: RagEvalResult | null) => void;
+  setPrevEvalResult: (result: RagEvalResult | null) => void;
+}
 
 export interface RagParamsState {
-  // 生成相关参数
-  temperature: number;     // 采样温度
-
-  // 检索相关参数
-  top_k: number;        // KG Top K
-  chunk_top_k: number;      // 文本块 Top K
-
-  // 系统提示词
+  temperature: number;    // 温度
+  chunk_top_k: number;    // 文本块 Top K
   systemPrompt: string;
 
   setTemperature: (v: number) => void;
-  setTopK: (v: number) => void;
   setChunkTopK: (v: number) => void;
   setSystemPrompt: (v: string) => void;
 }
@@ -38,49 +40,52 @@ export interface RagUIState {
   setShowOnboarding: (v: boolean) => void;
 }
 
-export type RagStore = RagParamsState & RagChatState & RagUploadState & RagUIState;
+export type RagStore = RagParamsState &
+  RagChatState &
+  RagUploadState &
+  RagUIState &
+  RagEvalState;
 
 export const useRagStore = create<RagStore>()(
   persist(
     (set) => ({
-      // ==== 生成参数 ====
+      // ==== 评测结果 ====
+      evalResult: null,
+      prevEvalResult: null,
+
+      setEvalResult: (result) => set({ evalResult: result }),
+      setPrevEvalResult: (result) => set({ prevEvalResult: result }),
+
+      // 参数
       temperature: 0.7,
-
-      // ==== 检索参数 ====
-      top_k: 40,
       chunk_top_k: 20,
-
-      // ==== System Prompt ====
-      systemPrompt:
-        '你是一个专业的 AI 文档助手。请根据用户问题和提供的上下文片段，用简洁、准确的语言回答。如果上下文没有相关信息，请明确指出，而不是编造答案。',
+      systemPrompt: DEFAULT_SYSTEM_PROMPT,
 
       setTemperature: (v) => set({ temperature: v }),
-      setTopK: (v) => set({ top_k: v }),
       setChunkTopK: (v) => set({ chunk_top_k: v }),
       setSystemPrompt: (v) => set({ systemPrompt: v }),
 
-      // ==== Chat ====
+      // Chat
       queryInput: '',
       setQueryInput: (v) => set({ queryInput: v }),
 
       pendingQuery: null,
       setPendingQuery: (v) => set({ pendingQuery: v }),
 
-      // ==== 上传 ====
+      // 上传
       uploadNewFiles: [],
       setUploadNewFiles: (files) => set({ uploadNewFiles: files }),
       clearUploadNewFiles: () => set({ uploadNewFiles: [] }),
 
-      // ==== UI ====
+      // 新手引导
       showOnboarding: true,
       setShowOnboarding: (v) => set({ showOnboarding: v }),
     }),
     {
       name: 'rag-client-store',
-      // 持久化：只保存长期有用的配置
+      // 持久化保存长期有用的配置
       partialize: (state) => ({
         temperature: state.temperature,
-        top_k: state.top_k,
         chunk_top_k: state.chunk_top_k,
         systemPrompt: state.systemPrompt,
         showOnboarding: state.showOnboarding,

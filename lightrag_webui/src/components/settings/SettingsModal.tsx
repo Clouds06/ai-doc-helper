@@ -6,10 +6,15 @@ import { DEFAULT_SYSTEM_PROMPT } from '@/lib/constants';
 import { CardHeader } from '../common/CardHeader';
 import { CardTabs } from '../common/CardTabs';
 import { CardTab } from '@/types';
+import { RagEvalResult, runRagEvaluation, saveRagParams } from '@/api/lightrag';
 
 interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
+  showToast: (
+    message: string,
+    type: 'success' | 'warning' | 'info',
+  ) => void;
 }
 
 // 评测 / 配置用的参数快照
@@ -19,7 +24,7 @@ export type SavedParamsSnapshot = {
   systemPrompt: string;
 };
 
-export const SettingsModal = ({ isOpen, onClose }: SettingsModalProps) => {
+export const SettingsModal = ({ isOpen, onClose, showToast }: SettingsModalProps) => {
   const [activeTab, setActiveTab] = useState('params');
 
   // 从 Zustand 取当前全局配置
@@ -32,10 +37,14 @@ export const SettingsModal = ({ isOpen, onClose }: SettingsModalProps) => {
   const storeSystemPrompt = useRagStore((s) => s.systemPrompt);
   const setSystemPrompt = useRagStore((s) => s.setSystemPrompt);
 
+  const evalResult = useRagStore((s) => s.evalResult);
+  const setEvalResult = useRagStore((s) => s.setEvalResult);
+  const setPrevEvalResult = useRagStore((s) => s.setPrevEvalResult);
+
   const defaultSystemPrompt =
-    (storeSystemPrompt && storeSystemPrompt.trim().length > 0
+    storeSystemPrompt && storeSystemPrompt.trim().length > 0
       ? storeSystemPrompt
-      : DEFAULT_SYSTEM_PROMPT);
+      : DEFAULT_SYSTEM_PROMPT;
 
   const initialSaved: SavedParamsSnapshot = {
     temperature:
@@ -45,16 +54,16 @@ export const SettingsModal = ({ isOpen, onClose }: SettingsModalProps) => {
     systemPrompt: defaultSystemPrompt,
   };
 
-  // 当前“已保存生效”的配置（给 ParamsTab、EvalTab 用）
   const [savedParams, setSavedParams] =
     useState<SavedParamsSnapshot>(initialSaved);
 
-  // 最近一次评测时使用的参数快照
   const [lastEvalParams, setLastEvalParams] =
     useState<SavedParamsSnapshot | null>(null);
 
   const [evalState, setEvalState] =
     useState<'idle' | 'loading' | 'done'>('idle');
+
+  const [, setEvalError] = useState<string | null>(null);
 
   const hasEvaluated = lastEvalParams !== null;
   const isParamsChanged = hasEvaluated
@@ -62,29 +71,61 @@ export const SettingsModal = ({ isOpen, onClose }: SettingsModalProps) => {
     : true;
   const isEvalButtonDisabled = hasEvaluated && !isParamsChanged;
 
-  // Config Tab 点“保存配置”时调用：同步到本地状态 + Zustand
-  const handleSaveConfig = (next: SavedParamsSnapshot) => {
+  const handleSaveConfig = async (next: SavedParamsSnapshot) => {
     setSavedParams(next);
 
-    // 推到全局 store，让实际 RAG 请求用这份配置
     setTemperature(next.temperature);
     setChunkTopK(next.chunkTopK);
     setSystemPrompt(next.systemPrompt);
 
-    if (typeof window !== 'undefined' && window.alert) {
-      window.alert('配置已保存！现在可以前往评测面板进行新一轮测试。');
+    try {
+      await saveRagParams({
+        temperature: next.temperature,
+        chunk_top_k: next.chunkTopK,
+        systemPrompt: next.systemPrompt,
+      });
+
+      if (typeof window !== 'undefined') {
+        showToast('配置已保存！现在可以前往评测面板进行新一轮测试。', 'success');
+      }
+    } catch (err) {
+      console.error('[saveRagParams] failed', err);
+      if (typeof window !== 'undefined') {
+        showToast('配置保存失败，请稍后重试。', 'warning');
+      }
     }
   };
 
-  const startEvaluation = () => {
+  const startEvaluation = async () => {
     if (evalState === 'loading') return;
-    setEvalState('loading');
 
-    // 模拟一段 loading，然后记录这次评测参数
-    setTimeout(() => {
-      setEvalState('done');
+    setEvalState('loading');
+    setEvalError(null);
+
+    try {
+      if (evalResult) {
+        setPrevEvalResult(evalResult);
+      }
+
+      const result: RagEvalResult = await runRagEvaluation({
+        temperature: savedParams.temperature,
+        chunk_top_k: savedParams.chunkTopK,
+        systemPrompt: savedParams.systemPrompt,
+      });
+
+      setEvalResult(result);
+
       setLastEvalParams(savedParams);
-    }, 1500);
+
+      setEvalState('done');
+    } catch (err) {
+      console.error('[runRagEvaluation] failed', err);
+      setEvalError(
+        err instanceof Error ? err.message : '评测失败，请稍后重试。',
+      );
+      setEvalState('idle');
+      showToast('评测失败，请稍后重试。', 'warning');
+    }
   };
 
   if (!isOpen) return null;
@@ -130,7 +171,5 @@ export const SettingsModal = ({ isOpen, onClose }: SettingsModalProps) => {
     </div>
   );
 };
-
-
 
 export default SettingsModal;

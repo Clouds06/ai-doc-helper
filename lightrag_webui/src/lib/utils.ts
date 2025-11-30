@@ -1,4 +1,4 @@
-import { RagasMetrics } from '@/types'
+import { RagasMetricKey, RagasMetrics } from '@/types'
 import { clsx, type ClassValue } from 'clsx'
 import { twMerge } from 'tailwind-merge'
 import { StoreApi, UseBoundStore } from 'zustand'
@@ -67,12 +67,7 @@ export const createSelectors = <S extends UseBoundStore<StoreApi<object>>>(_stor
   return store
 }
 
-// 增强的 prompt 注入清洗（防止常见的“忽略之前指示/忘记之前/系统注入”等攻击）
-// - 移除代码块 / 行内代码
-// - 去除控制字符
-// - 去掉常见注入关键词及其后面的指令
-// - 在常见分隔符（如 ### / --- / System: / Assistant: / User:）处截断
-// - 合并多余空白并限制长度
+// prompt
 export const sanitizeQuery = (raw: string) => {
   if (!raw) return '';
 
@@ -193,4 +188,14 @@ export const formatFileSize = (bytes: number) => {
   const sizes = ['B', 'KB', 'MB', 'GB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return `${(bytes / Math.pow(k, i)).toFixed(1)} ${sizes[i]}`;
+};
+
+// 格式化评测指标为百分比数值
+export const formatMetrics = (metrics?: Partial<Record<RagasMetricKey, number>>) => {
+  return {
+    faithfulness: metrics ? Math.round((metrics.faithfulness ?? 0) * 100) : 0,
+    answer_relevance: metrics ? Math.round((metrics.answer_relevance ?? 0) * 100) : 0,
+    context_recall: metrics ? Math.round((metrics.context_recall ?? 0) * 100) : 0,
+    context_precision: metrics ? Math.round((metrics.context_precision ?? 0) * 100) : 0,
+  };
 };

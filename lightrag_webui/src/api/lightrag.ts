@@ -1,8 +1,10 @@
 import axios, { AxiosError } from 'axios'
 import { backendBaseUrl } from '../lib/constants'
 import { useSettingsStore } from '../stores/settings'
-import { navigationService } from '../services/navigation'
+import { navigationService } from '@/services/navigation'
 import { errorMessage } from '@/lib/utils'
+import { EvalSample } from '@/types'
+import { MOCK_EVAL_RESULT } from '@/data/mock'
 
 // Types
 export type LightragStatus = {
@@ -209,21 +211,55 @@ export const checkHealth = async (): Promise<
   }
 }
 
-// Settings APIs
-// TODO: 与RAG接口对齐
-export type SettingsDTO = {
+const USE_MOCK = true;
+
+// 评测参数结构
+export interface RagEvalParams {
   temperature: number;
-  top_k: number;
   chunk_top_k: number;
   systemPrompt: string;
-};
-
-export async function getSettings(): Promise<SettingsDTO> {
-  const { data } = await axiosInstance.get<SettingsDTO>('/settings');
-  return data;
 }
 
-export async function saveSettings(body: SettingsDTO): Promise<SettingsDTO> {
-  const { data } = await axiosInstance.post<SettingsDTO>('/settings', body);
-  return data;
+// 评测结果结构
+export interface RagEvalResult {
+  total_samples: number;
+  metrics: {
+    faithfulness?: number;
+    answer_relevance?: number;
+    context_recall?: number;
+    context_precision?: number;
+  };
+  samples: EvalSample[];
+  evaluated_at?: string;
+}
+
+// TODO: 把 '/rag/config' 替换后端真实的配置保存接口
+export async function saveRagParams(params: {
+  temperature: number;
+  chunk_top_k: number;
+  systemPrompt: string;
+}) {
+  if (USE_MOCK) {
+    console.log('[Mock] saveRagParams', params);
+    await new Promise((r) => setTimeout(r, 300));
+    return { status: 'success' };
+  }
+
+  return axiosInstance.post('/rag/save-params', params);
+}
+
+// TODO: 把 '/rag/eval' 替换成后端真实的评测接口
+export async function runRagEvaluation(params: {
+  temperature: number;
+  chunk_top_k: number;
+  systemPrompt: string;
+}) {
+  if (USE_MOCK) {
+    console.log('[Mock] Using MOCK_EVAL_RESULT');
+    await new Promise((res) => setTimeout(res, 600));
+    return MOCK_EVAL_RESULT;
+  }
+
+  const res = await axiosInstance.post('/rag/evaluate', params);
+  return res.data;
 }

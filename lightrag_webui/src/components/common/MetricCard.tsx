@@ -37,11 +37,13 @@ export const MetricCard = ({ metricKey, value, previousValue } : MetricCardProps
               className={`flex items-center text-xs font-medium px-1.5 py-0.5 rounded ${
                 isPositive
                   ? 'bg-green-50 text-green-700'
-                  : 'bg-red-50 text-red-700'
+                  : diff === 0 ? 'bg-gray-50 text-gray-700' : 'bg-red-50 text-red-700'
               }`}
             >
               {isPositive ? (
                 <ArrowUp size={10} className="mr-0.5" />
+              ) : diff === 0 ? (
+                <></>
               ) : (
                 <ArrowDown size={10} className="mr-0.5" />
               )}

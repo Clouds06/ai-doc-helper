@@ -4,6 +4,9 @@ import { Check, RotateCcw, ListFilter } from 'lucide-react';
 import { SavedParamsSnapshot } from '../settings/SettingsModal';
 import { CollapsibleSampleRow } from './CollapsibleSampleRow';
 import { MetricCard } from './MetricCard';
+import { useRagStore } from '@/hooks/useRagStore';
+import { formatMetrics } from '@/lib/utils';
+import { useMemo } from 'react';
 
 interface EvalResultDisplayProps {
   hasEvaluated: boolean;
@@ -17,28 +20,21 @@ export const EvalResultDisplay = ({
   lastEvalParams,
   isEvalButtonDisabled,
   onStartEvaluation,
-} : EvalResultDisplayProps) => {
-  const result = hasEvaluated ? MOCK_EVAL_RESULT : null;
+}: EvalResultDisplayProps) => {
+  const evalResult = useRagStore((s) => s.evalResult);
+  const prevEvalResult = useRagStore((s) => s.prevEvalResult);
 
-  const topMetricValues: Record<RagasMetricKey, number> = {
-    faithfulness: result ? Math.round((result.metrics.faithfulness ?? 0) * 100) : 0,
-    answer_relevance: result
-      ? Math.round((result.metrics.answer_relevance ?? 0) * 100)
-      : 0,
-    context_recall: result
-      ? Math.round((result.metrics.context_recall ?? 0) * 100)
-      : 0,
-    context_precision: result
-      ? Math.round((result.metrics.context_precision ?? 0) * 100)
-      : 0,
-  };
+  const result = hasEvaluated ? evalResult ?? MOCK_EVAL_RESULT : null;
 
-  const previousMetricValues: Partial<Record<RagasMetricKey, number>> = {
-    faithfulness: topMetricValues.faithfulness - 2,
-    answer_relevance: topMetricValues.answer_relevance - 1,
-    context_recall: topMetricValues.context_recall + 3,
-    context_precision: topMetricValues.context_precision - 4,
-  };
+  const topMetricValues = useMemo(
+    () => formatMetrics(evalResult?.metrics),
+    [evalResult?.metrics],
+  );
+
+  const previousMetricValues = useMemo(
+    () => formatMetrics(prevEvalResult?.metrics),
+    [prevEvalResult?.metrics],
+  );
 
   return (
     <div className="relative flex flex-col w-full bg-gray-50/30 gap-5">
@@ -47,7 +43,8 @@ export const EvalResultDisplay = ({
           <h2 className="text-lg font-bold text-gray-900">评测结果</h2>
           {lastEvalParams && (
             <p className="text-xs text-gray-400 mt-1">
-              基于参数: 温度 {lastEvalParams.temperature}, 文本块召回数量 {lastEvalParams.chunkTopK}
+              基于参数: 温度 {lastEvalParams.temperature}, 文本块召回数量{' '}
+              {lastEvalParams.chunkTopK}
             </p>
           )}
         </div>
@@ -96,11 +93,10 @@ export const EvalResultDisplay = ({
         ))}
       </div>
 
-      {/* 下部：样例列表 —— 不在这里搞 overflow，交给外层内容区域滚动 */}
+      {/* 下部：样例列表 */}
       <div className="w-full max-w-5xl mx-auto pr-1 custom-scrollbar">
         {result && (
           <div className="flex flex-col gap-2 animate-fade-in pb-10 pt-1">
-            {/* 列表标题 + 图例 */}
             <div className="flex items-center justify-between px-1 mb-1">
               <div className="flex items-center gap-2 text-sm font-bold text-gray-500">
                 <ListFilter className="w-3.5 h-3.5" />
