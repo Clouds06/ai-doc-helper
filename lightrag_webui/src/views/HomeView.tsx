@@ -1,11 +1,11 @@
 import { HeroSearchCard } from '../components/home/HeroSearchCard';
 import StaticOnboarding from '../components/home/StaticOnboarding';
 
-interface HomePageProps {
+interface HomeViewProps {
   onSearch: (query: string) => void;
 }
 
-export const HomePage = ({ onSearch }: HomePageProps) => {
+export const HomeView = ({ onSearch }: HomeViewProps) => {
   const handleSearchAttempt = (query: string) => {
     const trimmed = query.trim();
     if (!trimmed) return;

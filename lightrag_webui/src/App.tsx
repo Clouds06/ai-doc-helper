@@ -4,9 +4,9 @@ import { Toast } from './components/common/Toast';
 import { SettingsModal } from './components/settings/SettingsModal';
 import { UploadModal } from './components/common/UploadModal';
 import { TopNavbar } from './components/common/TopNavbar';
-import { HomePage } from './pages/HomePage';
-import { ChatView } from './pages/ChatView';
-import { DocumentsView } from './pages/DocumentsView';
+import { HomeView } from './views/HomeView';
+import { ChatView } from './views/ChatView';
+import { DocumentsView } from './views/DocumentsView';
 import { useRagStore } from './hooks/useRagStore';
 import { useUploadStore } from '@/hooks/useUploadStore';
 import { sanitizeQuery } from './lib/utils';
@@ -78,7 +78,7 @@ export default function App() {
 
       <main className="flex-1 relative flex flex-col min-h-0 overflow-hidden">
         <Routes>
-          <Route path="/" element={<HomePage onSearch={handleSearchToChat} />} />
+          <Route path="/" element={<HomeView onSearch={handleSearchToChat} />} />
           <Route path="/chat" element={<ChatView />} />
           <Route path="/documents" element={<DocumentsView onUpload={openUploadModal} />} />
         </Routes>
