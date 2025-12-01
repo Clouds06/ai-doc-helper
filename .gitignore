@@ -48,7 +48,7 @@ neo4jWorkDir/
 inputs/
 output/
 rag_storage/
-data/
+# data/
 
 # Evaluation results
 lightrag/evaluation/results/
@@ -74,3 +74,4 @@ download_models_hf.py
 memory-bank
 .claude/CLAUDE.md
 .claude/
+lightrag_webui/pnpm-lock.yaml
