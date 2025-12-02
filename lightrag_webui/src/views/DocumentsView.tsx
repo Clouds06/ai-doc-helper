@@ -53,14 +53,14 @@ export const DocumentsView = ({ onUpload }: DocumentsViewProps) => {
 
   const getIcon = (type: string) => {
     switch (type) {
-      case 'pdf':
-        return <FileText className="h-6 w-6 text-red-500" />
-      case 'doc':
-        return <FileText className="h-6 w-6 text-blue-500" />
-      case 'sheet':
-        return <Database className="h-6 w-6 text-green-500" />
-      default:
-        return <FileText className="h-6 w-6 text-gray-400" />
+    case 'pdf':
+      return <FileText className="h-6 w-6 text-red-500" />
+    case 'doc':
+      return <FileText className="h-6 w-6 text-blue-500" />
+    case 'sheet':
+      return <Database className="h-6 w-6 text-green-500" />
+    default:
+      return <FileText className="h-6 w-6 text-gray-400" />
     }
   }
 

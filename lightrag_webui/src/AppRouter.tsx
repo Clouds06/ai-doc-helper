@@ -3,7 +3,7 @@ import App from './App'
 
 export default function AppRouter() {
   return (
-    <Router basename='/webui'>
+    <Router basename={import.meta.env.BASE_URL}>
       <Routes>
         <Route path="/*" element={<App />} />
       </Routes>
