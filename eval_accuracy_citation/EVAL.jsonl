@@ -1,0 +1,19 @@
+{"q": "LightRAG如何解决大型语言模型的幻觉问题？", "gold": ["通过将大型语言模型与外部知识检索相结合", "确保LLM输出基于实际文档", "提供上下文响应以显著减少幻觉"], "doc_hint": ["01_lightrag_overview.md"]}
+
+{"q": "RAG系统需要哪三个主要组件？", "gold": ["检索系统（向量数据库或搜索引擎）", "嵌入模型（将文本转换为向量表示）", "大型语言模型（基于检索的上下文生成响应）"], "doc_hint": ["02_rag_architecture.md"]}
+
+{"q": "LightRAG相比传统RAG方法有哪些改进？", "gold": ["更简单的API设计", "更快的检索性能", "更好的向量数据库集成", "优化的提示策略"], "doc_hint": ["03_lightrag_improvements.md"]}
+
+{"q": "LightRAG支持哪些向量数据库？", "gold": ["ChromaDB", "Neo4j", "Milvus", "Qdrant", "MongoDB Atlas", "Redis", "内置的nano-vectordb"], "doc_hint": ["04_supported_databases.md"]}
+
+{"q": "评估RAG系统质量的四个关键指标是什么？", "gold": ["忠实度（Faithfulness）", "答案相关性（Answer Relevance）", "上下文召回率（Context Recall）", "上下文精确率（Context Precision）"], "doc_hint": ["05_evaluation_and_deployment.md"]}
+
+{"q": "LightRAG的核心优势是什么？", "gold": ["通过文档基础的响应提高准确性", "无需模型重训练即可获取最新信息", "通过专业文档集合实现领域专业知识", "通过避免昂贵的微调实现成本效益", "通过显示源文档确保透明度"], "doc_hint": ["01_lightrag_overview.md"]}
+
+{"q": "LightRAG的部署选项有哪些？", "gold": ["Docker容器部署", "使用FastAPI的REST API服务器", "直接Python集成"], "doc_hint": ["05_evaluation_and_deployment.md"]}
+
+{"q": "Neo4j数据库在LightRAG中有什么特点？", "gold": ["图数据库", "支持基于图的知识表示", "结合关系建模和向量功能"], "doc_hint": ["04_supported_databases.md"]}
+
+{"q": "忠实度指标衡量什么？", "gold": ["答案是否基于检索的上下文中的事实", "检测LLM响应中的幻觉", "评估生成响应的事实准确性"], "doc_hint": ["05_evaluation_and_deployment.md"]}
+
+{"q": "LightRAG的设计理念是什么？", "gold": ["优先考虑易用性而不牺牲质量", "在检索操作中结合速度和准确性", "在数据库和模型选择方面保持灵活性"], "doc_hint": ["03_lightrag_improvements.md"]}
