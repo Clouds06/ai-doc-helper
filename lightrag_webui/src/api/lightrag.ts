@@ -135,12 +135,12 @@ const axiosInstance = axios.create({
 // Interceptor: add api key and check authentication
 axiosInstance.interceptors.request.use((config) => {
   const apiKey = useSettingsStore.getState().apiKey
-  const token = localStorage.getItem('LIGHTRAG-API-TOKEN');
+  // const token = localStorage.getItem('LIGHTRAG-API-TOKEN');
 
   // Always include token if it exists, regardless of path
-  if (token) {
-    config.headers['Authorization'] = `Bearer ${token}`
-  }
+  // if (token) {
+  //   config.headers['Authorization'] = `Bearer ${token}`
+  // }
   if (apiKey) {
     config.headers['X-API-Key'] = apiKey
   }
@@ -154,11 +154,11 @@ axiosInstance.interceptors.response.use(
     if (error.response) {
       if (error.response?.status === 401) {
         // For login API, throw error directly
-        if (error.config?.url?.includes('/login')) {
-          throw error;
-        }
+        // if (error.config?.url?.includes('/login')) {
+        //   throw error;
+        // }
         // For other APIs, navigate to login page
-        navigationService.navigateToLogin();
+        // navigationService.navigateToLogin();
 
         // return a reject Promise
         return Promise.reject(new Error('Authentication required'));
