@@ -1,0 +1,73 @@
+# 前端 CI/CD 流水线：master/develop 分支代码检查+构建，仅master分支部署GitHub Pages
+name: Frontend CI/CD
+
+on:
+  # 触发规则：push/PR到master/develop（仅前端代码变更）、手动触发
+  push:
+    branches: [ "master", "develop" ]
+    paths:
+      - 'lightrag_webui/**'          # 前端代码变更触发
+      - '.github/workflows/**'       # 所有CI/CD配置文件变更触发（推荐）
+  pull_request:
+    branches: [ "master", "develop" ]
+    paths:
+      - 'lightrag_webui/**'          # 前端代码变更触发
+      - '.github/workflows/**'       # CI/CD配置文件变更触发
+  workflow_dispatch:
+
+# 部署Pages所需最小权限
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 并发控制：Pages部署分组，不取消正在执行的任务
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  # CI：前端构建+Lint检查（所有触发场景均执行）
+  build-check:
+    runs-on: ubuntu-latest
+    defaults:
+      run: { working-directory: ./lightrag_webui }
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with: { bun-version: latest }
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Lint check
+        run: bun run lint
+
+      - name: Build
+        run: bun run build
+        env:
+          # 适配GitHub Pages路径：仓库名/webui/（匹配前端Router basename）
+          VITE_BASE_URL: /${{ github.event.repository.name }}/
+
+      # 仅master分支push时上传构建产物（用于部署）
+      - name: Upload Build Artifact
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        uses: actions/upload-pages-artifact@v3
+        with: { path: lightrag/api/webui }
+
+  # CD：部署GitHub Pages（仅master分支push且CI成功后执行）
+  deploy:
+    needs: build-check
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
