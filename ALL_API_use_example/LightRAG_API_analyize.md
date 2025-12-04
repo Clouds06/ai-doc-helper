@@ -44,5 +44,3 @@
 | checkHealth     | GET  | `/health`       | 检查后端健康状态 |
 | getAuthStatus   | GET  | `/auth-status`  | 获取认证状态     |
 | loginToServer   | POST | `/login`        | 登录认证         |
-
-

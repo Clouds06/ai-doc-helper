@@ -37,15 +37,14 @@ import httpx
 # 设置日志
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler()
-    ]
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    handlers=[logging.StreamHandler()],
 )
 logger = logging.getLogger(__name__)
 
 # 添加父目录到路径
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+
 
 class AccuracyCitationEvaluator:
     """评测RAG系统的准确率和引用率"""
@@ -92,7 +91,7 @@ class AccuracyCitationEvaluator:
             raise FileNotFoundError(f"评测数据集不存在: {self.dataset_path}")
 
         test_cases = []
-        with open(self.dataset_path, 'r', encoding='utf-8') as f:
+        with open(self.dataset_path, "r", encoding="utf-8") as f:
             for line in f:
                 line = line.strip()
                 if line:
@@ -117,7 +116,7 @@ class AccuracyCitationEvaluator:
                 "mode": "mix",
                 "include_references": True,
                 "response_type": "Multiple Paragraphs",
-                "top_k": 10
+                "top_k": 10,
             }
 
             # 获取API密钥
@@ -126,25 +125,22 @@ class AccuracyCitationEvaluator:
 
             try:
                 response = await client.post(
-                    f"{self.rag_api_url}/query",
-                    json=payload,
-                    headers=headers
+                    f"{self.rag_api_url}/query", json=payload, headers=headers
                 )
                 response.raise_for_status()
                 result = response.json()
 
                 return {
                     "answer": result.get("response", "No response generated"),
-                    "references": result.get("references", [])
+                    "references": result.get("references", []),
                 }
             except Exception as e:
                 logger.error(f"API调用错误: {str(e)}")
-                return {
-                    "answer": f"Error: {str(e)}",
-                    "references": []
-                }
+                return {"answer": f"Error: {str(e)}", "references": []}
 
-    def evaluate_accuracy(self, answer: str, gold_points: List[str]) -> Tuple[bool, str]:
+    def evaluate_accuracy(
+        self, answer: str, gold_points: List[str]
+    ) -> Tuple[bool, str]:
         """
         评估准确率
 
@@ -167,19 +163,23 @@ class AccuracyCitationEvaluator:
             # 使用正则表达式匹配，允许中间有其他字符
             # 对于较短的关键点，要求精确匹配
             if len(point_lower) <= 5:
-                pattern = r'\b' + re.escape(point_lower) + r'\b'
+                pattern = r"\b" + re.escape(point_lower) + r"\b"
             else:
                 # 对于较长的关键点，使用分词匹配
                 words = point_lower.split()
-                pattern = '.*'.join(re.escape(word) for word in words)
+                pattern = ".*".join(re.escape(word) for word in words)
 
             if re.search(pattern, answer_lower, re.DOTALL):
                 return True, ""
 
         # 如果没有匹配到任何关键点
-        return False, f"未覆盖任何gold关键点，回答为'{answer[:50]}...'" if len(answer) > 50 else f"未覆盖任何gold关键点，回答为'{answer}'"
+        return False, f"未覆盖任何gold关键点，回答为'{answer[:50]}...'" if len(
+            answer
+        ) > 50 else f"未覆盖任何gold关键点，回答为'{answer}'"
 
-    def evaluate_citation(self, references: List[Dict[str, Any]], expected_docs: List[str]) -> Tuple[bool, str]:
+    def evaluate_citation(
+        self, references: List[Dict[str, Any]], expected_docs: List[str]
+    ) -> Tuple[bool, str]:
         """
         评估引用率
 
@@ -198,11 +198,11 @@ class AccuracyCitationEvaluator:
         for ref in references:
             if isinstance(ref, dict):
                 # 尝试从不同字段获取文档名
-                for field in ['file_name', 'filename', 'title', 'source']:
+                for field in ["file_name", "filename", "title", "source"]:
                     if field in ref and ref[field]:
                         doc_name = str(ref[field])
                         # 提取文件名（如果是路径）
-                        doc_name = doc_name.split('/')[-1].split('\\')[-1]
+                        doc_name = doc_name.split("/")[-1].split("\\")[-1]
                         cited_docs.append(doc_name)
                         break
 
@@ -215,11 +215,18 @@ class AccuracyCitationEvaluator:
 
         # 如果没有引用任何预期文档
         if cited_docs:
-            return False, f"引用了错误文档 '{', '.join(cited_docs[:3])}'，预期是 '{', '.join(expected_docs)}'" if len(cited_docs) > 3 else f"引用了错误文档 '{', '.join(cited_docs)}'，预期是 '{', '.join(expected_docs)}'"
+            return (
+                False,
+                f"引用了错误文档 '{', '.join(cited_docs[:3])}'，预期是 '{', '.join(expected_docs)}'"
+                if len(cited_docs) > 3
+                else f"引用了错误文档 '{', '.join(cited_docs)}'，预期是 '{', '.join(expected_docs)}'",
+            )
         else:
             return False, f"未引用任何文档，预期引用 '{', '.join(expected_docs)}'"
 
-    async def evaluate_single_case(self, idx: int, test_case: Dict[str, Any]) -> Dict[str, Any]:
+    async def evaluate_single_case(
+        self, idx: int, test_case: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """
         评估单个测试用例
 
@@ -245,7 +252,9 @@ class AccuracyCitationEvaluator:
         accuracy_result, accuracy_error = self.evaluate_accuracy(answer, gold_points)
 
         # 评估引用率
-        citation_result, citation_error = self.evaluate_citation(references, expected_docs)
+        citation_result, citation_error = self.evaluate_citation(
+            references, expected_docs
+        )
 
         # 生成note
         note = f"Q{idx + 1}: "
@@ -267,7 +276,7 @@ class AccuracyCitationEvaluator:
             "citation": citation_result,
             "accuracy_error": accuracy_error,
             "citation_error": citation_error,
-            "note": note
+            "note": note,
         }
 
         # 控制台输出
@@ -308,11 +317,17 @@ class AccuracyCitationEvaluator:
                 total_citation += 1
 
         # 计算整体指标
-        overall_accuracy = (total_accuracy / len(self.test_cases)) * 100 if self.test_cases else 0
-        overall_citation = (total_citation / len(self.test_cases)) * 100 if self.test_cases else 0
+        overall_accuracy = (
+            (total_accuracy / len(self.test_cases)) * 100 if self.test_cases else 0
+        )
+        overall_citation = (
+            (total_citation / len(self.test_cases)) * 100 if self.test_cases else 0
+        )
 
         # 控制台输出整体结果
-        logger.info(f"[EVAL] 评测完成 - 整体准确率：{overall_accuracy:.1f}% | 整体引用率：{overall_citation:.1f}%")
+        logger.info(
+            f"[EVAL] 评测完成 - 整体准确率：{overall_accuracy:.1f}% | 整体引用率：{overall_citation:.1f}%"
+        )
 
         # 输出Notes
         logger.info("\nNotes:")
@@ -323,23 +338,35 @@ class AccuracyCitationEvaluator:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         result_file = self.results_dir / f"eval_results_{timestamp}.json"
 
-        with open(result_file, 'w', encoding='utf-8') as f:
-            json.dump({
-                "timestamp": datetime.now().isoformat(),
-                "duration_seconds": time.time() - start_time,
-                "total_cases": len(self.test_cases),
-                "overall_accuracy": overall_accuracy,
-                "overall_citation": overall_citation,
-                "results": results
-            }, f, ensure_ascii=False, indent=2)
+        with open(result_file, "w", encoding="utf-8") as f:
+            json.dump(
+                {
+                    "timestamp": datetime.now().isoformat(),
+                    "duration_seconds": time.time() - start_time,
+                    "total_cases": len(self.test_cases),
+                    "overall_accuracy": overall_accuracy,
+                    "overall_citation": overall_citation,
+                    "results": results,
+                },
+                f,
+                ensure_ascii=False,
+                indent=2,
+            )
 
         logger.info(f"\n评测结果已保存到：{result_file}")
 
         # 返回页面展示内容
-        page_content = self._generate_page_content(results, overall_accuracy, overall_citation)
+        page_content = self._generate_page_content(
+            results, overall_accuracy, overall_citation
+        )
         return page_content
 
-    def _generate_page_content(self, results: List[Dict[str, Any]], overall_accuracy: float, overall_citation: float) -> str:
+    def _generate_page_content(
+        self,
+        results: List[Dict[str, Any]],
+        overall_accuracy: float,
+        overall_citation: float,
+    ) -> str:
         """
         生成页面展示内容
 
@@ -396,12 +423,28 @@ class AccuracyCitationEvaluator:
         """
 
         for result in results:
-            accuracy_mark = "<span class='success'>√</span>" if result['accuracy'] else f"<span class='error'>×</span>"
-            citation_mark = "<span class='success'>√</span>" if result['citation'] else f"<span class='error'>×</span>"
+            accuracy_mark = (
+                "<span class='success'>√</span>"
+                if result["accuracy"]
+                else "<span class='error'>×</span>"
+            )
+            citation_mark = (
+                "<span class='success'>√</span>"
+                if result["citation"]
+                else "<span class='error'>×</span>"
+            )
 
             # 截断长文本
-            question_display = result['question'][:100] + "..." if len(result['question']) > 100 else result['question']
-            answer_display = result['answer'][:200] + "..." if len(result['answer']) > 200 else result['answer']
+            question_display = (
+                result["question"][:100] + "..."
+                if len(result["question"]) > 100
+                else result["question"]
+            )
+            answer_display = (
+                result["answer"][:200] + "..."
+                if len(result["answer"]) > 200
+                else result["answer"]
+            )
 
             html += f"""
                 <tr>
@@ -416,14 +459,14 @@ class AccuracyCitationEvaluator:
         html += "</table>"
 
         # 错误汇总
-        error_results = [r for r in results if not r['accuracy'] or not r['citation']]
+        error_results = [r for r in results if not r["accuracy"] or not r["citation"]]
         if error_results:
             html += "<h2>错误汇总</h2><div class='error-summary'><ul>"
             for result in error_results:
                 errors = []
-                if not result['accuracy']:
+                if not result["accuracy"]:
                     errors.append(f"准确率不通过: {result['accuracy_error']}")
-                if not result['citation']:
+                if not result["citation"]:
                     errors.append(f"引用率不通过: {result['citation_error']}")
                 html += f"<li>Q{result['test_number']}: {', '.join(errors)}</li>"
             html += "</ul></div>"
@@ -433,18 +476,19 @@ class AccuracyCitationEvaluator:
         # 保存HTML结果
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         html_file = self.results_dir / f"eval_results_{timestamp}.html"
-        with open(html_file, 'w', encoding='utf-8') as f:
+        with open(html_file, "w", encoding="utf-8") as f:
             f.write(html)
 
         logger.info(f"HTML报告已保存到：{html_file}")
 
         return html
 
+
 def main():
     """主函数"""
     parser = argparse.ArgumentParser(description="准确率与引用率评测脚本")
-    parser.add_argument('--dataset', '-d', help='评测数据集文件路径', default=None)
-    parser.add_argument('--ragendpoint', '-r', help='LightRAG API端点', default=None)
+    parser.add_argument("--dataset", "-d", help="评测数据集文件路径", default=None)
+    parser.add_argument("--ragendpoint", "-r", help="LightRAG API端点", default=None)
     args = parser.parse_args()
 
     try:
@@ -453,6 +497,7 @@ def main():
     except Exception as e:
         logger.error(f"评测失败: {str(e)}")
         sys.exit(1)
+
 
 if __name__ == "__main__":
     main()
