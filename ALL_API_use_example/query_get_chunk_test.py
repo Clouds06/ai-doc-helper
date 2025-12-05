@@ -39,7 +39,7 @@ def main():
     print("=== 测试非流式查询（返回文本块）===")
     # 非流式查询示例 - 启用文本块返回
     data = {
-        "query": "3NF",
+        "query": "LightRAG如何解决幻觉",
         "mode": "mix",  # 查询模式
         "include_references": True,  # 是否包含引用源
         "include_chunk_content": True,  # 设置为True以返回检索到的文本块内容

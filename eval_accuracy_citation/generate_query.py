@@ -10,16 +10,19 @@ def openai_complete_if_cache(
     model=None, prompt=None, system_prompt=None, history_messages=[], **kwargs
 ) -> str:
     # 从环境变量读取配置
-    # llm_binding = os.getenv("LLM_BINDING", "openai")
+    llm_binding = os.getenv("LLM_BINDING", "openai")
     llm_binding_host = os.getenv("LLM_BINDING_HOST")
     llm_binding_api_key = os.getenv("LLM_BINDING_API_KEY")
-
+    
     # 如果没有指定模型，则从环境变量读取
     if model is None:
         model = os.getenv("LLM_MODEL", "gpt-4o-mini")
-
+    
     # 创建 OpenAI 客户端（支持 OpenAI 兼容的 API）
-    openai_client = OpenAI(api_key=llm_binding_api_key, base_url=llm_binding_host)
+    openai_client = OpenAI(
+        api_key=llm_binding_api_key,
+        base_url=llm_binding_host
+    )
 
     messages = []
     if system_prompt:
