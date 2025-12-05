@@ -231,15 +231,18 @@ class JsonDocStatusStorage(DocStatusStorage):
         page_size: int = 50,
         sort_field: str = "updated_at",
         sort_direction: str = "desc",
+        keyword: str | None = None,
+        file_type: str | None = None,
     ) -> tuple[list[tuple[str, DocProcessingStatus]], int]:
-        """Get documents with pagination support
+        """Get documents with pagination and search support
 
         Args:
             status_filter: Filter by document status, None for all statuses
             page: Page number (1-based)
             page_size: Number of documents per page (10-200)
-            sort_field: Field to sort by ('created_at', 'updated_at', 'id')
+            sort_field: Field to sort by ('created_at', 'updated_at', 'id', 'file_path')
             sort_direction: Sort direction ('asc' or 'desc')
+            keyword: Search keyword for file_path, id or content_summary
 
         Returns:
             Tuple of (list of (doc_id, DocProcessingStatus) tuples, total_count)
@@ -258,17 +261,53 @@ class JsonDocStatusStorage(DocStatusStorage):
         if sort_direction.lower() not in ["asc", "desc"]:
             sort_direction = "desc"
 
+        # Prepare keyword for case-insensitive search
+        search_term = keyword.lower().strip() if keyword else None
+
+        # 准备文件类型后缀
+        target_ext = None
+        if file_type:
+            # 移除空白，转小写，如果没带点则加上点 (例如 "pdf" -> ".pdf")
+            clean_type = file_type.lower().strip()
+            if clean_type:
+                target_ext = (
+                    clean_type if clean_type.startswith(".") else f".{clean_type}"
+                )
+
         # For JSON storage, we load all data and sort/filter in memory
         all_docs = []
 
         async with self._storage_lock:
             for doc_id, doc_data in self._data.items():
-                # Apply status filter
+                # 1. Apply status filter
                 if (
                     status_filter is not None
                     and doc_data.get("status") != status_filter.value
                 ):
                     continue
+
+                # 2. Apply file type filter
+                if target_ext:
+                    file_path = doc_data.get("file_path", "")
+                    # 检查文件名是否以指定后缀结尾 (不区分大小写)
+                    if not file_path.lower().endswith(target_ext):
+                        continue
+
+                # 3. Apply keyword filter
+                if search_term:
+                    # Check ID match
+                    id_match = search_term in doc_id.lower()
+
+                    # Check file path match
+                    file_path = doc_data.get("file_path", "")
+                    path_match = file_path and search_term in file_path.lower()
+
+                    # Check content summary match
+                    summary = doc_data.get("content_summary", "")
+                    summary_match = summary and search_term in summary.lower()
+
+                    if not (id_match or path_match or summary_match):
+                        continue
 
                 try:
                     # Prepare document data

@@ -1,103 +1,10 @@
 import os
-import json
-from pathlib import Path
 from dotenv import load_dotenv
 from openai import OpenAI
 
 # 加载 .env 文件中的环境变量
 load_dotenv()
 
-
-def read_documents(documents_dir):
-    """
-    读取文档集中的所有文档内容
-    
-    Args:
-        documents_dir: 文档集目录路径
-        
-    Returns:
-        文档内容字典，键为文件名，值为文档内容
-    """
-    documents = {}
-    doc_dir = Path(documents_dir)
-    
-    for doc_path in doc_dir.glob("*.md"):
-        if doc_path.name != "README.md":  # 跳过README文件
-            try:
-                with open(doc_path, "r", encoding="utf-8") as f:
-                    content = f.read()
-                    documents[doc_path.name] = content
-            except Exception as e:
-                print(f"读取文档 {doc_path.name} 失败: {e}")
-    
-    return documents
-
-def generate_test_cases(documents, output_file):
-    """
-    从文档内容生成测试用例
-    
-    Args:
-        documents: 文档内容字典
-        output_file: 输出文件路径
-    """
-    # 准备文档内容
-    docs_content = "\n\n".join([f"# {doc_name}\n{content}" for doc_name, content in documents.items()])
-    
-    # 设计提示
-    prompt = f"""
-    你需要基于以下文档内容，生成与`sample_dataset.json`格式一致的测试用例数据。
-    
-    文档内容：
-    {docs_content}
-    
-    输出格式要求：
-    1. 输出一个JSON对象，包含一个名为"test_cases"的数组
-    2. 每个数组元素包含：
-       - "question": 用户问题
-       - "ground_truth": 基于文档内容的标准答案
-       - "project": 固定为"lightrag_evaluation_sample"
-    3. 生成6个测试用例，涵盖不同的文档主题
-    4. 问题应该多样化，覆盖不同类型的查询
-    5. 答案应该准确反映文档内容，并且结构清晰
-    
-    请只输出JSON内容，不要包含其他解释性文本。
-    """
-    
-    # 调用OpenAI API生成测试用例
-    response = openai_complete_if_cache(
-        model=None, 
-        prompt=prompt, 
-        system_prompt="你是一个专业的RAG测试用例生成专家，能够根据文档内容生成高质量的测试用例。",
-        temperature=0.3  # 较低的温度值确保输出更准确
-    )
-    
-    try:
-        # 清理生成的内容，去除可能的Markdown代码块标记
-        cleaned_response = response.strip()
-        if cleaned_response.startswith('```json'):
-            cleaned_response = cleaned_response[7:]  # 去除开头的 ```json
-        if cleaned_response.endswith('```'):
-            cleaned_response = cleaned_response[:-3]  # 去除结尾的 ```
-        cleaned_response = cleaned_response.strip()  # 再次去除首尾空白
-        
-        # 解析生成的JSON
-        test_cases_data = json.loads(cleaned_response)
-        
-        # 验证数据格式
-        if "test_cases" in test_cases_data and isinstance(test_cases_data["test_cases"], list):
-            # 保存到文件
-            with open(output_file, "w", encoding="utf-8") as f:
-                json.dump(test_cases_data, f, ensure_ascii=False, indent=2)
-            print(f"测试用例已成功生成并保存到 {output_file}")
-            return test_cases_data
-        else:
-            print("生成的数据格式不符合要求")
-            return None
-    except json.JSONDecodeError as e:
-        print(f"解析生成的JSON失败: {e}")
-        print("生成的原始内容:", response)
-        print("清理后的内容:", cleaned_response)
-        return None
 
 def openai_complete_if_cache(
     model=None, prompt=None, system_prompt=None, history_messages=[], **kwargs
@@ -130,31 +37,105 @@ def openai_complete_if_cache(
 
 
 if __name__ == "__main__":
-    # 配置路径
-    DOCUMENTS_DIR = "c:\\Users\\王子豪\\PycharmProjects\\ai-doc-helper\\lightrag\\evaluation\\sample_documents"
-    OUTPUT_FILE = "c:\\Users\\王子豪\\PycharmProjects\\ai-doc-helper\\lightrag\\evaluation\\generated_dataset.json"
-    
-    try:
-        # 读取文档
-        print(f"正在读取文档集...")
-        documents = read_documents(DOCUMENTS_DIR)
-        
-        if not documents:
-            print("未读取到任何文档")
-            exit(1)
-            
-        print(f"成功读取 {len(documents)} 个文档")
-        
-        # 生成测试用例
-        print(f"正在生成测试用例...")
-        test_cases_data = generate_test_cases(documents, OUTPUT_FILE)
-        
-        if test_cases_data:
-            print(f"生成完成！共生成 {len(test_cases_data['test_cases'])} 个测试用例")
-        else:
-            print("生成失败")
-            exit(1)
-            
-    except Exception as e:
-        print(f"执行过程中发生错误: {e}")
-        exit(1)
+    description = ""
+    prompt = f"""
+给定以下数据集描述：
+
+{description}
+
+请完成以下要求：
+
+1. 识别 5 类可能会使用该数据集的潜在用户；
+
+2. 为每类用户列出 5 项他们会利用该数据集执行的具体任务；
+
+3. 针对每个（用户类型 + 任务）组合，生成 10 个需要对整个数据集有高阶理解（而非仅提取局部信息）的问题。
+
+请严格按照以下格式输出结果：
+
+- 用户 1：[用户类型描述，需明确身份、背景及使用数据集的核心诉求]
+
+  - 任务 1：[具体任务描述，需说明用户通过该任务想要达成的目标]
+
+    - 问题 1：[需基于数据集整体逻辑、趋势、关联或深层价值设计]
+
+    - 问题 2：
+
+    - 问题 3：
+
+    - 问题 4：
+
+    - 问题 5：
+
+    - 问题 6：
+
+    - 问题 7：
+
+    - 问题 8：
+
+    - 问题 9：
+
+    - 问题 10：
+
+  - 任务 2：[具体任务描述]
+
+    - 问题 1：
+
+    - 问题 2：
+
+    - ...（依次补充至问题 10）
+
+  - 任务 3：[具体任务描述]
+
+    - ...（同上）
+
+  - 任务 4：[具体任务描述]
+
+    - ...（同上）
+
+  - 任务 5：[具体任务描述]
+
+    - ...（同上）
+
+- 用户 2：[用户类型描述]
+
+  - 任务 1：[具体任务描述]
+
+    - 问题 1：
+
+    - ...（依次补充至问题 10）
+
+  - ...（依次补充至任务 5）
+
+- 用户 3：[用户类型描述]
+
+  - ...（同上）
+
+- 用户 4：[用户类型描述]
+
+  - ...（同上）
+
+- 用户 5：[用户类型描述]
+
+  - ...（同上）
+
+关键说明（确保生成质量）
+
+1. 「高阶理解问题」定义：需结合数据集的整体结构、数据间的关联关系、长期趋势、潜在规律、跨维度对比或业务价值，而非仅查询单个数据点、局部字段含义等基础信息；
+
+2. 用户类型需具备差异性（如不同行业、不同角色、不同目标），避免重复；
+
+3. 任务描述需具体可落地（如"基于数据集优化电商平台的商品推荐策略"而非"分析数据"）；
+
+4. 问题需与对应用户的身份和任务强相关，避免泛化或无关的提问。
+
+    """
+
+    # 不指定模型，让函数从环境变量读取
+    result = openai_complete_if_cache(prompt=prompt)
+
+    file_path = "./queries.txt"
+    with open(file_path, "w") as file:
+        file.write(result)
+
+    print(f"Queries written to {file_path}")

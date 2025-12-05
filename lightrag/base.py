@@ -749,6 +749,8 @@ class DocStatusStorage(BaseKVStorage, ABC):
         page_size: int = 50,
         sort_field: str = "updated_at",
         sort_direction: str = "desc",
+        keyword: str | None = None,
+        file_type: str | None = None,
     ) -> tuple[list[tuple[str, DocProcessingStatus]], int]:
         """Get documents with pagination support
 
@@ -758,6 +760,7 @@ class DocStatusStorage(BaseKVStorage, ABC):
             page_size: Number of documents per page (10-200)
             sort_field: Field to sort by ('created_at', 'updated_at', 'id')
             sort_direction: Sort direction ('asc' or 'desc')
+            keyword: Search keyword for file_path, id or content_summary
 
         Returns:
             Tuple of (list of (doc_id, DocProcessingStatus) tuples, total_count)

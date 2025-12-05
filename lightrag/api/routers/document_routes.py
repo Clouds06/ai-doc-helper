@@ -580,6 +580,8 @@ class DocumentsRequest(BaseModel):
         page_size: Number of documents per page (10-200)
         sort_field: Field to sort by ('created_at', 'updated_at', 'id', 'file_path')
         sort_direction: Sort direction ('asc' or 'desc')
+        keyword: Search keyword for filtering by file name, ID, or content summary
+        file_type: Filter by file extension (e.g., pdf, md, txt)
     """
 
     status_filter: Optional[DocStatus] = Field(
@@ -595,6 +597,14 @@ class DocumentsRequest(BaseModel):
     sort_direction: Literal["asc", "desc"] = Field(
         default="desc", description="Sort direction"
     )
+    # [新增] 搜索关键词字段
+    keyword: Optional[str] = Field(
+        default=None, description="Search keyword for file name, ID or content summary"
+    )
+    # [新增] 文件类型筛选字段
+    file_type: Optional[str] = Field(
+        default=None, description="Filter by file extension (e.g., pdf, md, txt)"
+    )
 
     class Config:
         json_schema_extra = {
@@ -604,6 +614,8 @@ class DocumentsRequest(BaseModel):
                 "page_size": 50,
                 "sort_field": "updated_at",
                 "sort_direction": "desc",
+                "keyword": "report",
+                "file_type": "pdf",
             }
         }
 
@@ -2935,14 +2947,14 @@ def create_document_routes(
         request: DocumentsRequest,
     ) -> PaginatedDocsResponse:
         """
-        Get documents with pagination support.
+        Get documents with pagination support and optional keyword search.
 
-        This endpoint retrieves documents with pagination, filtering, and sorting capabilities.
+        This endpoint retrieves documents with pagination, filtering, sorting, and search capabilities.
         It provides better performance for large document collections by loading only the
         requested page of data.
 
         Args:
-            request (DocumentsRequest): The request body containing pagination parameters
+            request (DocumentsRequest): The request body containing pagination and search parameters
 
         Returns:
             PaginatedDocsResponse: A response object containing:
@@ -2955,12 +2967,15 @@ def create_document_routes(
         """
         try:
             # Get paginated documents and status counts in parallel
+            # [修改] 传递 keyword 参数
             docs_task = rag.doc_status.get_docs_paginated(
                 status_filter=request.status_filter,
                 page=request.page,
                 page_size=request.page_size,
                 sort_field=request.sort_field,
                 sort_direction=request.sort_direction,
+                keyword=request.keyword,  # 传递搜索关键词
+                file_type=request.file_type,  # [新增] 传递文件类型
             )
             status_counts_task = rag.doc_status.get_all_status_counts()
 
@@ -2990,6 +3005,10 @@ def create_document_routes(
 
             # Calculate pagination info
             total_pages = (total_count + request.page_size - 1) // request.page_size
+            # Handle edge case where total_count is 0
+            if total_pages == 0:
+                total_pages = 1
+
             has_next = request.page < total_pages
             has_prev = request.page > 1
 
