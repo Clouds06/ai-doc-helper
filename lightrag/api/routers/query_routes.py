@@ -10,6 +10,7 @@ from lightrag.api.utils_api import get_combined_auth_dependency
 from lightrag.utils import logger
 from pydantic import BaseModel, Field, field_validator
 import numpy as np
+from datetime import datetime, timezone
 
 router = APIRouter(tags=["query"])
 
@@ -32,6 +33,19 @@ def compute_cosine_similarity(vec1, vec2):
     cosine_sim = dot_product / (norm1 * norm2)
 
     return float(np.clip(cosine_sim, 0.0, 1.0))
+
+
+# 反馈模型
+class FeedbackRequest(BaseModel):
+    query_id: str = Field(description="Query ID received from the response")
+    feedback_type: Literal["like", "dislike"] = Field(description="like or dislike")
+    comment: Optional[str] = Field(default=None, description="User comments or reasons")
+    original_query: Optional[str] = Field(
+        default=None, description="The original query text"
+    )
+    original_response: Optional[str] = Field(
+        default=None, description="The original response text"
+    )
 
 
 class QueryRequest(BaseModel):
@@ -180,6 +194,7 @@ class ReferenceItem(BaseModel):
 
 
 class QueryResponse(BaseModel):
+    query_id: Optional[str] = Field(description="Unique ID for this query")
     response: str = Field(
         description="The generated response",
     )
@@ -203,6 +218,7 @@ class QueryDataResponse(BaseModel):
 class StreamChunkResponse(BaseModel):
     """Response model for streaming chunks in NDJSON format"""
 
+    query_id: Optional[str] = Field(description="Unique ID for this query")
     references: Optional[List[Dict[str, str]]] = Field(
         default=None,
         description="Reference list (only in first chunk when include_references=True)",
@@ -436,6 +452,9 @@ def create_query_routes(rag, api_key: Optional[str] = None, top_k: int = 60):
             # Unified approach: always use aquery_llm for both cases
             result = await rag.aquery_llm(request.query, param=param)
 
+            # 获取 ID
+            query_id = result.get("query_id")
+
             # Extract LLM response and references from unified result
             llm_response = result.get("llm_response", {})
             data = result.get("data", {})
@@ -517,9 +536,13 @@ def create_query_routes(rag, api_key: Optional[str] = None, top_k: int = 60):
 
             # Return response with or without references based on request
             if request.include_references:
-                return QueryResponse(response=response_content, references=references)
+                return QueryResponse(
+                    query_id=query_id, response=response_content, references=references
+                )
             else:
-                return QueryResponse(response=response_content, references=None)
+                return QueryResponse(
+                    query_id=query_id, response=response_content, references=None
+                )
         except Exception as e:
             logger.error(f"Error processing query: {str(e)}", exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
@@ -740,6 +763,9 @@ def create_query_routes(rag, api_key: Optional[str] = None, top_k: int = 60):
             # Unified approach: always use aquery_llm for all cases
             result = await rag.aquery_llm(request.query, param=param)
 
+            # 获取 ID
+            query_id = result.get("query_id")
+
             # 预先计算 Query 的向量
             try:
                 query_embeddings = await rag.embedding_func([request.query])
@@ -821,8 +847,20 @@ def create_query_routes(rag, api_key: Optional[str] = None, top_k: int = 60):
 
                 if llm_response.get("is_streaming"):
                     # Streaming mode: send references first, then stream response chunks
+
+                    initial_packet = {}
+                    # 注入 query_id
+                    if query_id:
+                        initial_packet["query_id"] = query_id
+                    # 注入 references
                     if request.include_references:
-                        yield f"{json.dumps({'references': references})}\n"
+                        initial_packet["references"] = references
+                    # 发送初始数据包 (只要有 query_id 或 references 就发送)
+                    if initial_packet:
+                        yield f"{json.dumps(initial_packet)}\n"
+
+                    # if request.include_references:
+                    #     yield f"{json.dumps({'references': references})}\n"
 
                     response_stream = llm_response.get("response_iterator")
                     if response_stream:
@@ -841,6 +879,9 @@ def create_query_routes(rag, api_key: Optional[str] = None, top_k: int = 60):
 
                     # Create complete response object
                     complete_response = {"response": response_content}
+                    # 注入 query_id
+                    if query_id:
+                        complete_response["query_id"] = query_id
                     if request.include_references:
                         complete_response["references"] = references
 
@@ -858,6 +899,29 @@ def create_query_routes(rag, api_key: Optional[str] = None, top_k: int = 60):
             )
         except Exception as e:
             logger.error(f"Error processing streaming query: {str(e)}", exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
+
+    # Feedback 接口
+    @router.post("/feedback", dependencies=[Depends(combined_auth)])
+    async def submit_feedback_endpoint(request: FeedbackRequest):
+        """
+        提交用户对检索结果的反馈 (点赞/点踩)。
+        这将影响后续的检索 Prompt 优化。
+        """
+        try:
+            feedback_data = {
+                "feedback_type": request.feedback_type,
+                "comment": request.comment,
+                "query": request.original_query,
+                "response": request.original_response,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            }
+
+            await rag.submit_feedback(request.query_id, feedback_data)
+
+            return {"status": "success", "message": "Feedback received"}
+        except Exception as e:
+            logger.error(f"Error submitting feedback: {e}", exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
 
     @router.post(

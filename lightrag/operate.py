@@ -3116,10 +3116,12 @@ async def kg_query(
 
     # Build system prompt
     sys_prompt_temp = system_prompt if system_prompt else PROMPTS["rag_response"]
+    feedback_context = global_config.get("feedback_context", "")
     sys_prompt = sys_prompt_temp.format(
         response_type=response_type,
         user_prompt=user_prompt,
         context_data=context_result.context,
+        feedback_context=feedback_context,
     )
 
     user_query = query
@@ -3149,6 +3151,7 @@ async def kg_query(
         ll_keywords_str,
         query_param.user_prompt or "",
         query_param.enable_rerank,
+        feedback_context,
     )
 
     cached_result = await handle_cache(
@@ -3934,10 +3937,12 @@ async def _build_context_str(
     kg_context_tokens = len(tokenizer.encode(pre_kg_context))
 
     # Calculate preliminary system prompt tokens
+    feedback_context = global_config.get("feedback_context", "")
     pre_sys_prompt = sys_prompt_template.format(
         context_data="",  # Empty for overhead calculation
         response_type=response_type,
         user_prompt=user_prompt,
+        feedback_context=feedback_context,
     )
     sys_prompt_tokens = len(tokenizer.encode(pre_sys_prompt))
 
@@ -4832,10 +4837,12 @@ async def naive_query(
     )
 
     # Create a preliminary system prompt with empty content_data to calculate overhead
+    feedback_context = global_config.get("feedback_context", "")
     pre_sys_prompt = sys_prompt_template.format(
         response_type=response_type,
         user_prompt=user_prompt,
         content_data="",  # Empty for overhead calculation
+        feedback_context=feedback_context,
     )
 
     # Calculate available tokens for chunks
@@ -4920,6 +4927,7 @@ async def naive_query(
         response_type=query_param.response_type,
         user_prompt=user_prompt,
         content_data=context_content,
+        feedback_context=feedback_context,
     )
 
     user_query = query
@@ -4940,6 +4948,7 @@ async def naive_query(
         query_param.max_total_tokens,
         query_param.user_prompt or "",
         query_param.enable_rerank,
+        feedback_context,
     )
     cached_result = await handle_cache(
         hashing_kv, args_hash, user_query, query_param.mode, cache_type="query"

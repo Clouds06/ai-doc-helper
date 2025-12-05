@@ -1,6 +1,6 @@
 # LightRAG API 调用示例项目
 
-本项目包含了与 LightRAG（检索增强生成系统）进行交互的 API 调用示例，涵盖文档管理、查询和数据操作等核心功能，新增文档类型筛选、关键词搜索能力。
+本项目包含了与 LightRAG（检索增强生成系统）进行交互的 API 调用示例，涵盖文档管理、查询、数据操作和反馈等核心功能。
 
 ## 项目结构
 
@@ -14,6 +14,7 @@ PyCharmMiscProject/
 ├── query_test.py                 # 查询 API 调用示例（非流式和流式）
 ├── query_score_calculation.py    # 检索得分计算验证示例（流式/非流式）
 ├── query_get_chunk_test.py       # 获取文档块相关功能
+├── user_feedback.py              # 用户反馈 API 调用示例（点赞/点踩及效果验证）
 └── API_use_README.md             # 项目说明文档
 ```
 
@@ -36,6 +37,10 @@ PyCharmMiscProject/
 - **流式查询**：实时获取查询响应，支持增量展示
 - **引用源追踪**：支持显示查询结果的来源文档
 - **检索得分展示**：返回每个相关文档片段与查询语句的余弦相似度得分
+
+### 4. 反馈机制
+- **点赞/点踩**：支持用户对查询结果进行评价（Like/Dislike）。
+- **自适应优化**：系统会自动记录“点踩”的负面反馈（如“回答太啰嗦”、“格式错误”），并将其作为“历史教训”动态注入到后续查询的 System Prompt 中，从而在不重新训练模型的情况下优化回答风格和逻辑。
 
 ## 环境要求
 
@@ -131,12 +136,23 @@ python query_score_calculation.py
 - `include_chunk_content`: 必须为 `True`（否则只返回分数列表，无法验证分数对应哪段文字）。
 
 **功能包括**：
-
 - 同时测试流式 (/query/stream) 和非流式 (/query) 接口
-
 - 展示每个文档引用的详细信息
-
 - 片段级得分展示：一一对应展示文档片段内容 (content) 和其对应的相似度得分 (scores)，直观验证检索相关性
+
+
+### 8. 用户反馈与优化验证
+
+运行反馈功能测试脚本，验证 “提问 -> 反馈 -> 优化” 的完整闭环：
+
+```bash
+python user_feedback.py
+```
+
+**功能包括**：
+- 提交反馈：对查询返回的 query_id 提交 "like" 或 "dislike" 评价。
+- 效果验证：脚本会自动演示“针对回答提出批评（如要求改用幼儿园老师语气） -> 再次提问 -> 验证回答风格是否改变”的流程。
+
 
 ## API 详细说明
 
@@ -212,6 +228,7 @@ python query_score_calculation.py
 - **响应示例**（包含得分）：
   ```json
   {
+    "query_id": "aca62e1b-910a-429c-8dd1-a118fd64d494", // 唯一查询ID，用于提交反馈
     "response": "RAG 是检索增强生成...",
     "references": [
       {
@@ -236,7 +253,34 @@ python query_score_calculation.py
   - `include_chunk_content`：是否包含具体内容（**建议设为 `true`**。设为 `true` 时，`references` 中将包含 `content` 列表，与 `scores` 列表一一对应，用于前端展示具体命中的文档片段）
 - **响应说明**：
   - 第一条消息通常包含 references 对象。
+  - 第一条消息（或包含引用的消息）中会返回 `query_id` 字段，需前端保存该 ID 以便用户后续进行点赞/点踩操作。
   - references 对象中新增 scores 字段 (List[float])，代表每个文档片段与 Query 的余弦相似度（范围 0.0 ~ 1.0）。
+
+### 反馈 API
+
+#### 提交反馈
+- **端点**：`POST /feedback`
+- **功能**：提交用户对特定查询结果的评价。系统会将 Dislike 的评论作为负面约束，Like 的评论作为正面风格维持，注入到未来的 System Prompt 中。
+- **请求体参数**：
+  | 参数名            | 类型   | 必选 | 说明                                                         |
+  | ----------------- | ------ | ---- | ------------------------------------------------------------ |
+  | query_id          | string | 是   | 查询接口返回的唯一标识 (UUID)                                |
+  | feedback_type     | string | 是   | 反馈类型：`"like"` (点赞) 或 `"dislike"` (点踩)              |
+  | comment           | string | 否   | 具体的评价内容或改进建议（例如："太啰嗦了，请简练一点"）。**点踩时强烈建议填写此字段**，以便 LLM 学习。 |
+  | original_query    | string | 否   | 原始查询问题（**建议填写**，以便将反馈与具体问题关联）                                 |
+  | original_response | string | 否   | 原始回答内容                                 |
+
+- **响应示例**：
+  ```json
+  {
+    "status": "success",
+    "message": "Feedback received"
+  }
+  ```
+
+- **注意事项**：
+  - 必须使用从 `/query` (非流式) 或 `/query/stream` (流式) **响应数据**中获取的 `query_id`。
+  - 如果未提供正确的 `query_id`，反馈将无法关联到具体的检索上下文，导致优化效果失效。
 
 ## 配置说明
 

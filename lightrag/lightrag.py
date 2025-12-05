@@ -7,6 +7,7 @@ import inspect
 import os
 import time
 import warnings
+import uuid
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from functools import partial
@@ -640,6 +641,14 @@ class LightRAG:
             embedding_func=None,
         )
 
+        # 使用 JsonKVStorage 存储反馈，命名空间为 "feedback"
+        self.feedback: BaseKVStorage = self.key_string_value_json_storage_cls(
+            namespace="feedback",
+            workspace=self.workspace,
+            global_config=global_config,
+            embedding_func=None,
+        )
+
         # Directly use llm_response_cache, don't create a new object
         hashing_kv = self.llm_response_cache
 
@@ -690,6 +699,7 @@ class LightRAG:
                 self.chunk_entity_relation_graph,
                 self.llm_response_cache,
                 self.doc_status,
+                self.feedback,
             ):
                 if storage:
                     # logger.debug(f"Initializing storage: {storage}")
@@ -714,6 +724,7 @@ class LightRAG:
                 ("chunk_entity_relation_graph", self.chunk_entity_relation_graph),
                 ("llm_response_cache", self.llm_response_cache),
                 ("doc_status", self.doc_status),
+                ("feedback", self.feedback),
             ]
 
             # Finalize each storage individually to ensure one failure doesn't prevent others from closing
@@ -745,6 +756,81 @@ class LightRAG:
                 logger.debug("All storages finalized successfully")
 
             self._storages_status = StoragesStatus.FINALIZED
+
+    # 提交反馈
+    async def submit_feedback(self, query_id: str, feedback_data: dict) -> bool:
+        """
+        提交用户反馈并更新历史记录供 Prompt 使用。
+        """
+        # 存储单条反馈详情 (feedback_data 是 dict，可以直接存)
+        await self.feedback.upsert({query_id: feedback_data})
+
+        # 更新"最近反馈历史"列表
+        history_wrapper = await self.feedback.get_by_id("recent_history")
+
+        # 从包装对象中提取列表，如果不存在则初始化空列表
+        if (
+            history_wrapper
+            and "data" in history_wrapper
+            and isinstance(history_wrapper["data"], list)
+        ):
+            history = history_wrapper["data"]
+        else:
+            history = []
+
+        # 添加新反馈到历史
+        history.append(feedback_data)
+
+        # 只保留最近 10 条
+        if len(history) > 10:
+            history = history[-10:]
+
+        # 将列表包装在字典 {"data": ...} 中，满足 JsonKVStorage 的要求
+        await self.feedback.upsert({"recent_history": {"data": history}})
+        await self.feedback.index_done_callback()
+        logger.info(f"Feedback submitted for query {query_id}")
+        return True
+
+    # 获取反馈上下文
+    async def _get_feedback_context(self, limit: int = 3) -> str:
+        """获取最近的反馈记录并格式化为 Prompt 文本"""
+        # 从存储中获取包装对象
+        history_wrapper = await self.feedback.get_by_id("recent_history")
+
+        # 检查包装对象是否存在且包含 data 列表
+        # 增加类型检查，防止数据损坏导致的错误
+        if (
+            not history_wrapper
+            or not isinstance(history_wrapper, dict)
+            or "data" not in history_wrapper
+        ):
+            return "暂无反馈记录。"
+
+        recent_feedbacks = history_wrapper["data"]
+
+        if not isinstance(recent_feedbacks, list) or not recent_feedbacks:
+            return "暂无反馈记录。"
+
+        context_lines = []
+        # 倒序取最近的
+        for item in reversed(recent_feedbacks):
+            if len(context_lines) >= limit:
+                break
+
+            f_type = item.get("feedback_type", "").lower()
+            comment = item.get("comment", "无评论")
+            q = item.get("query", "")
+
+            if f_type == "dislike":
+                context_lines.append(
+                    f"- [用户不满/Dislike] 问题: '{q}'。原因/建议: {comment}。请避免此类错误。"
+                )
+            elif f_type == "like":
+                context_lines.append(
+                    f"- [用户点赞/Like] 问题: '{q}'。原因: {comment}。请保持这种回答方式。"
+                )
+
+        return "\n".join(context_lines) if context_lines else "暂无反馈记录。"
 
     async def check_and_migrate_data(self):
         """Check if data migration is needed and perform migration if necessary"""
@@ -2692,9 +2778,22 @@ class LightRAG:
         Returns:
             dict[str, Any]: Complete response with structured data and LLM response.
         """
+        query_id = str(uuid.uuid4())  # 生成 Query ID
+
         logger.debug(f"[aquery_llm] Query param: {param}")
 
         global_config = asdict(self)
+
+        # 获取反馈上下文并注入配置
+        feedback_context = "暂无反馈记录。"
+        try:
+            # 尝试获取反馈上下文
+            feedback_context = await self._get_feedback_context(limit=3)
+        except Exception as e:
+            logger.warning(f"Failed to get feedback context: {e}")
+
+        # 注入配置
+        global_config["feedback_context"] = feedback_context
 
         try:
             query_result = None
@@ -2783,6 +2882,8 @@ class LightRAG:
 
             # Extract structured data from query result
             raw_data = query_result.raw_data or {}
+            # 将 query_id 注入返回数据
+            raw_data["query_id"] = query_id
             raw_data["llm_response"] = {
                 "content": query_result.content
                 if not query_result.is_streaming
@@ -2803,6 +2904,7 @@ class LightRAG:
                 "message": f"Query failed: {str(e)}",
                 "data": {},
                 "metadata": {},
+                "query_id": query_id,
                 "llm_response": {
                     "content": None,
                     "response_iterator": None,
