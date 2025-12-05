@@ -3224,6 +3224,7 @@ def convert_to_user_format(
             "content": chunk.get("content", ""),
             "file_path": chunk.get("file_path", "unknown_source"),
             "chunk_id": chunk.get("chunk_id", ""),
+            "score": chunk.get("rerank_score") or chunk.get("score"),
         }
         formatted_chunks.append(chunk_data)
 

@@ -9,8 +9,29 @@ from lightrag.base import QueryParam
 from lightrag.api.utils_api import get_combined_auth_dependency
 from lightrag.utils import logger
 from pydantic import BaseModel, Field, field_validator
+import numpy as np
 
 router = APIRouter(tags=["query"])
+
+
+def compute_cosine_similarity(vec1, vec2):
+    """计算两个向量的余弦相似度"""
+    # 确保转为 numpy 数组
+    v1 = np.array(vec1)
+    v2 = np.array(vec2)
+
+    norm1 = np.linalg.norm(v1)
+    norm2 = np.linalg.norm(v2)
+
+    if norm1 == 0 or norm2 == 0:
+        return 0.0
+
+    # 计算点积
+    dot_product = np.dot(v1, v2)
+    # 计算原始余弦值
+    cosine_sim = dot_product / (norm1 * norm2)
+
+    return float(np.clip(cosine_sim, 0.0, 1.0))
 
 
 class QueryRequest(BaseModel):
@@ -151,6 +172,10 @@ class ReferenceItem(BaseModel):
     content: Optional[List[str]] = Field(
         default=None,
         description="List of chunk contents from this file (only present when include_chunk_content=True)",
+    )
+    scores: Optional[List[float]] = Field(
+        default=None,
+        description="List of similarity scores corresponding to the chunks in 'content'",
     )
 
 
@@ -421,26 +446,72 @@ def create_query_routes(rag, api_key: Optional[str] = None, top_k: int = 60):
             if not response_content:
                 response_content = "No relevant context found for the query."
 
+            # 预先计算 Query 的向量
+            query_vec = None
+            try:
+                query_embeddings = await rag.embedding_func([request.query])
+                query_vec = query_embeddings[0]
+            except Exception as e:
+                logger.error(f"Failed to generate query embedding: {e}")
+
             # Enrich references with chunk content if requested
-            if request.include_references and request.include_chunk_content:
+            if request.include_references:
                 chunks = data.get("chunks", [])
                 # Create a mapping from reference_id to chunk content
                 ref_id_to_content = {}
+                ref_id_to_scores = {}
+
                 for chunk in chunks:
-                    ref_id = chunk.get("reference_id", "")
+                    ref_id = str(chunk.get("reference_id", ""))
                     content = chunk.get("content", "")
-                    if ref_id and content:
-                        # Collect chunk content; join later to avoid quadratic string concatenation
-                        ref_id_to_content.setdefault(ref_id, []).append(content)
+                    raw_score = chunk.get("score")
+
+                    # 扩展评分逻辑
+                    final_score = 0.0
+
+                    if raw_score is not None:
+                        # 1. 优先使用向量检索返回的原始分数
+                        final_score = float(raw_score)
+
+                    elif query_vec is not None and content:
+                        # 2. 无原始分数时（如知识图谱检索结果），基于向量计算余弦相似度
+                        try:
+                            chunk_embeddings = await rag.embedding_func([content])
+                            chunk_vec = chunk_embeddings[0]
+                            final_score = compute_cosine_similarity(
+                                query_vec, chunk_vec
+                            )
+                        except Exception as e:
+                            logger.warning(
+                                f"Embedding calculation failed for chunk {ref_id}: {e}"
+                            )
+                            final_score = 0.5
+                    else:
+                        # 3. 兜底逻辑
+                        final_score = 0.5
+
+                    final_score = round(float(final_score), 4)
+
+                    if ref_id:
+                        if content and request.include_chunk_content:
+                            ref_id_to_content.setdefault(ref_id, []).append(content)
+
+                        # 存储分数
+                        ref_id_to_scores.setdefault(ref_id, []).append(final_score)
 
                 # Add content to references
                 enriched_references = []
                 for ref in references:
                     ref_copy = ref.copy()
-                    ref_id = ref.get("reference_id", "")
+                    ref_id = str(ref.get("reference_id", ""))
                     if ref_id in ref_id_to_content:
                         # Keep content as a list of chunks (one file may have multiple chunks)
                         ref_copy["content"] = ref_id_to_content[ref_id]
+
+                    # 填充得分
+                    if ref_id in ref_id_to_scores:
+                        ref_copy["scores"] = ref_id_to_scores[ref_id]
+
                     enriched_references.append(ref_copy)
                 references = enriched_references
 
@@ -669,32 +740,82 @@ def create_query_routes(rag, api_key: Optional[str] = None, top_k: int = 60):
             # Unified approach: always use aquery_llm for all cases
             result = await rag.aquery_llm(request.query, param=param)
 
+            # 预先计算 Query 的向量
+            try:
+                query_embeddings = await rag.embedding_func([request.query])
+                query_vec = query_embeddings[0]
+            except Exception as e:
+                logger.error(f"Failed to generate query embedding: {e}")
+                query_vec = None
+
             async def stream_generator():
                 # Extract references and LLM response from unified result
                 references = result.get("data", {}).get("references", [])
                 llm_response = result.get("llm_response", {})
 
                 # Enrich references with chunk content if requested
-                if request.include_references and request.include_chunk_content:
+                if request.include_references:
                     data = result.get("data", {})
                     chunks = data.get("chunks", [])
                     # Create a mapping from reference_id to chunk content
                     ref_id_to_content = {}
+                    ref_id_to_scores = {}
+
                     for chunk in chunks:
-                        ref_id = chunk.get("reference_id", "")
+                        ref_id = str(chunk.get("reference_id", ""))
                         content = chunk.get("content", "")
-                        if ref_id and content:
-                            # Collect chunk content
-                            ref_id_to_content.setdefault(ref_id, []).append(content)
+                        raw_score = chunk.get("score")
+
+                        final_score = 0.0
+
+                        if raw_score is not None:
+                            # 1. 优先使用向量检索返回的原始分数
+                            # 说明：向量检索（如FAISS）已计算相似度分数，直接复用避免重复计算
+                            final_score = float(raw_score)
+
+                        elif query_vec is not None and content:
+                            # 2. 无原始分数时（如知识图谱检索结果），基于向量计算余弦相似度
+                            # 前置条件：需同时具备查询向量（query_vec）和chunk内容（content）
+                            try:
+                                # 生成当前chunk的嵌入向量（与query向量使用同一embedding函数，保证维度一致）
+                                chunk_embeddings = await rag.embedding_func([content])
+                                chunk_vec = chunk_embeddings[0]
+
+                                # 计算query向量与chunk向量的余弦相似度（取值范围[-1,1]，越接近1越相关）
+                                final_score = compute_cosine_similarity(
+                                    query_vec, chunk_vec
+                                )
+
+                            except Exception as e:
+                                logger.warning(
+                                    f"Embedding calculation failed for chunk {ref_id}: {e}"
+                                )
+                                final_score = 0.5  # 出错了给个中间分
+                        else:
+                            # 3. 兜底逻辑：无原始分数且无法计算向量相似度（如缺少query_vec或content）
+                            # 赋予中间分（0.5），平衡召回准确性与覆盖率
+                            final_score = 0.5
+
+                        final_score = round(float(final_score), 4)
+
+                        if ref_id:
+                            if content and request.include_chunk_content:
+                                ref_id_to_content.setdefault(ref_id, []).append(content)
+
+                            # 存储分数
+                            ref_id_to_scores.setdefault(ref_id, []).append(final_score)
 
                     # Add content to references
                     enriched_references = []
                     for ref in references:
                         ref_copy = ref.copy()
-                        ref_id = ref.get("reference_id", "")
+                        ref_id = str(ref.get("reference_id", ""))
                         if ref_id in ref_id_to_content:
                             # Keep content as a list of chunks (one file may have multiple chunks)
                             ref_copy["content"] = ref_id_to_content[ref_id]
+                        if ref_id in ref_id_to_scores:
+                            ref_copy["scores"] = ref_id_to_scores[ref_id]
+
                         enriched_references.append(ref_copy)
                     references = enriched_references
 

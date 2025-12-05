@@ -3405,6 +3405,10 @@ async def _get_vector_context(
                     "file_path": result.get("file_path", "unknown_source"),
                     "source_type": "vector",  # Mark the source type
                     "chunk_id": result.get("id"),  # Add chunk_id for deduplication
+                    # 不同的 VectorDB 实现可能使用 "score", "distance" 或 "_distance"
+                    "score": result.get("score")
+                    or result.get("distance")
+                    or result.get("_distance"),
                 }
                 valid_chunks.append(chunk_with_metadata)
 
@@ -3822,6 +3826,7 @@ async def _merge_all_chunks(
                         "content": chunk["content"],
                         "file_path": chunk.get("file_path", "unknown_source"),
                         "chunk_id": chunk_id,
+                        "score": chunk.get("score"),
                     }
                 )
 
@@ -3836,6 +3841,7 @@ async def _merge_all_chunks(
                         "content": chunk["content"],
                         "file_path": chunk.get("file_path", "unknown_source"),
                         "chunk_id": chunk_id,
+                        "score": chunk.get("score"),
                     }
                 )
 
@@ -3850,6 +3856,7 @@ async def _merge_all_chunks(
                         "content": chunk["content"],
                         "file_path": chunk.get("file_path", "unknown_source"),
                         "chunk_id": chunk_id,
+                        "score": chunk.get("score"),
                     }
                 )
 

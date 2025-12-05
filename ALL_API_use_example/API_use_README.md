@@ -12,6 +12,7 @@ PyCharmMiscProject/
 ├── document_type_filter.py       # 文档按类型筛选示例（分页查询扩展）
 ├── document_keyword_search.py    # 文档关键词搜索示例（分页查询扩展）
 ├── query_test.py                 # 查询 API 调用示例（非流式和流式）
+├── query_score_calculation.py    # 检索得分计算验证示例（流式/非流式）
 ├── query_get_chunk_test.py       # 获取文档块相关功能
 └── API_use_README.md             # 项目说明文档
 ```
@@ -34,6 +35,7 @@ PyCharmMiscProject/
 - **非流式查询**：同步获取完整查询结果
 - **流式查询**：实时获取查询响应，支持增量展示
 - **引用源追踪**：支持显示查询结果的来源文档
+- **检索得分展示**：返回每个相关文档片段与查询语句的余弦相似度得分
 
 ## 环境要求
 
@@ -110,6 +112,32 @@ python query_test.py
 - 非流式查询（完整响应）
 - 流式查询（实时响应）
 
+### 7. 检索得分验证
+
+运行检索得分计算验证示例，验证流式与非流式接口的得分返回情况：
+
+```bash
+python query_score_calculation.py
+```
+
+**配置要求**：
+
+为了直观验证片段内容与得分的一一对应关系，以及测试图谱召回的补位打分逻辑，脚本中默认配置如下：
+
+- `mode`: 建议设置为 `hybrid` 或 `global`。
+
+- `include_references`: 必须为 `True`（否则不返回引用对象）。
+
+- `include_chunk_content`: 必须为 `True`（否则只返回分数列表，无法验证分数对应哪段文字）。
+
+**功能包括**：
+
+- 同时测试流式 (/query/stream) 和非流式 (/query) 接口
+
+- 展示每个文档引用的详细信息
+
+- 片段级得分展示：一一对应展示文档片段内容 (content) 和其对应的相似度得分 (scores)，直观验证检索相关性
+
 ## API 详细说明
 
 ### 认证机制
@@ -177,18 +205,38 @@ python query_test.py
 - **端点**：`POST /query`
 - **参数**：
   - `query`：查询语句
-  - `mode`：查询模式（如 "mix"、"hybrid"）
-  - `include_references`：是否包含引用源
-  - `include_chunk_content`：是否包含具体内容
+  - `mode`：查询模式（**推荐使用 `"hybrid"` 或 `"global"`** 以获得最佳的检索覆盖率）
+  - `include_references`：是否包含引用源（**必须设为 `true`** 才能获取 `scores`（检索得分）和引用列表）
+  - `include_chunk_content`：是否包含具体内容（**建议设为 `true`**。设为 `true` 时，`references` 中将包含 `content` 列表，与 `scores` 列表一一对应，用于前端展示具体命中的文档片段）
   - `response_type`：响应格式
+- **响应示例**（包含得分）：
+  ```json
+  {
+    "response": "RAG 是检索增强生成...",
+    "references": [
+      {
+        "reference_id": "doc_1",
+        "file_path": "data/rag_intro.pdf",
+        "scores": [0.92, 0.85],  // [新增] 对应 content 中每个片段的相似度得分
+        "content": [             // 仅当 include_chunk_content=true 时返回
+           "片段1内容...",
+           "片段2内容..."
+        ]
+      }
+    ]
+  }
 
 #### 流式查询
 - **端点**：`POST /query/stream`
 - **参数**：
-  - `query`：查询语句
-  - `mode`：查询模式
+  - `query`：查询语句（如 "global"、"hybrid"）
+  - `mode`：查询模式（**推荐使用 `"hybrid"` 或 `"global"`** 以获得最佳的检索覆盖率）
   - `stream`：设为 true 启用流式响应
-  - `include_references`：是否包含引用源
+  - `include_references`：是否包含引用源（**必须设为 `true`** 才能获取 `scores`（检索得分）和引用列表）
+  - `include_chunk_content`：是否包含具体内容（**建议设为 `true`**。设为 `true` 时，`references` 中将包含 `content` 列表，与 `scores` 列表一一对应，用于前端展示具体命中的文档片段）
+- **响应说明**：
+  - 第一条消息通常包含 references 对象。
+  - references 对象中新增 scores 字段 (List[float])，代表每个文档片段与 Query 的余弦相似度（范围 0.0 ~ 1.0）。
 
 ## 配置说明
 
@@ -213,6 +261,7 @@ python query_test.py
 4. 执行删除操作前，请确认文档 ID 的正确性
 5. 关键词搜索支持模糊匹配，搜索范围包括文档 ID、文件名和前 100 字摘要
 6. `file_type` 参数值为文件后缀（建议不带点号），如 md/txt/docx，不区分大小写
+7. **获取检索得分**：若需返回文档片段的相似度得分 (`scores`)，查询参数必须设置 `include_references: true`；若需核对得分对应的具体文本内容，需同时设置 `include_chunk_content: true`。建议使用 `hybrid` 或 `global` 模式以获得最佳的评分效果。
 
 ## 扩展与定制
 
