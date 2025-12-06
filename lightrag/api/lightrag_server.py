@@ -52,6 +52,7 @@ from lightrag.api.routers.document_routes import (
 from lightrag.api.routers.query_routes import create_query_routes
 from lightrag.api.routers.graph_routes import create_graph_routes
 from lightrag.api.routers.ollama_api import OllamaAPI
+from lightrag.api.routers.eval_routes import create_eval_routes
 
 from lightrag.utils import logger, set_verbose_debug
 from lightrag.kg.shared_storage import (
@@ -993,7 +994,20 @@ def create_app(args):
 
     # Initialize RAG with unified configuration
     try:
+        from typing import List
+        
+        # Create a simple custom tokenizer to avoid tiktoken network dependency
+        class SimpleTokenizer:
+            def encode(self, content: str) -> List[int]:
+                return list(range(len(content.split())))
+            def decode(self, tokens: List[int]) -> str:
+                return ' '.join(['token' + str(t) for t in tokens])
+        
+        from lightrag.utils import Tokenizer
+        simple_tokenizer = Tokenizer("simple", SimpleTokenizer())
+        
         rag = LightRAG(
+            tokenizer=simple_tokenizer,
             working_dir=args.working_dir,
             workspace=args.workspace,
             llm_model_func=create_llm_model_func(args.llm_binding),
@@ -1041,6 +1055,7 @@ def create_app(args):
     )
     app.include_router(create_query_routes(rag, api_key, args.top_k))
     app.include_router(create_graph_routes(rag, api_key))
+    app.include_router(create_eval_routes(api_key))
 
     # Add Ollama API routes
     ollama_api = OllamaAPI(rag, top_k=args.top_k, api_key=api_key)
