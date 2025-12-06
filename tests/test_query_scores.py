@@ -7,6 +7,8 @@ from unittest.mock import AsyncMock, MagicMock
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+sys.modules["ragas_evaluation"] = MagicMock()
+
 pytestmark = pytest.mark.offline
 
 # ==================== 【防止 argparse 报错】 ====================
