@@ -45,8 +45,9 @@ class RAGASEvaluator:
     Handles document loading, querying, and metric calculation.
     """
 
-    def __init__(self, lightrag_api_url: str = "http://localhost:9621"):
+    def __init__(self, lightrag_api_url: str = "http://localhost:9621", input_docs_dir: str = None):
         self.lightrag_api_url = lightrag_api_url.rstrip('/')
+        self.input_docs_dir = input_docs_dir
         self.llm = self._init_llm()
         self.embeddings = self._init_embeddings()
 
@@ -124,8 +125,18 @@ class RAGASEvaluator:
         
         return OpenAIEmbeddings(**embedding_kwargs)
 
-    async def ingest_documents(self, input_dir: str = "data/inputs/__enqueued__") -> None:
+    async def ingest_documents(self, input_dir: str = None) -> None:
         """Load .md files from input directory and index them into LightRAG."""
+        # Use environment variable if input_dir is not provided
+        if input_dir is None:
+            input_dir = os.getenv("EVAL_DOCS_DIR")
+        
+        # Set default if still None
+        if input_dir is None:
+            # Default to sample_documents relative to the current script directory
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+            input_dir = os.path.join(script_dir, "sample_documents")
+        
         # Convert relative path to absolute path if needed
         if not os.path.isabs(input_dir):
             # Get the absolute path relative to the project root (not script directory)
@@ -210,8 +221,8 @@ class RAGASEvaluator:
 
                     data = await response.json()
 
-                    # Debug: Log the actual response structure
-                    logger.debug(f"LightRAG response structure: {data}")
+                    # Debug: Log the actual response structure with full context
+                    logger.info(f"LightRAG full response: {json.dumps(data, ensure_ascii=False, indent=2)}")
 
                     # Parse response based on standard LightRAG output format
                     # Try multiple possible field names for the answer
@@ -268,11 +279,14 @@ class RAGASEvaluator:
                                         if not os.path.isabs(file_path):
                                             # Look for the file in common locations
                                             possible_paths = [
-                                                os.path.join("data", "inputs", "__enqueued__", file_path),
-                                                os.path.join("data", "inputs", file_path),
-                                                os.path.join("data", file_path),
-                                                file_path
-                                            ]
+                                                    os.path.join("data", "inputs", "__enqueued__", file_path),
+                                                    os.path.join("data", "inputs", file_path),
+                                                    os.path.join("data", file_path),
+                                                    file_path,
+                                                ]
+                                                # Add the input_docs_dir to possible paths if available
+                                                if self.input_docs_dir:
+                                                    possible_paths.append(os.path.join(self.input_docs_dir, file_path))
                                             
                                             file_found = False
                                             for path in possible_paths:
@@ -354,7 +368,7 @@ class RAGASEvaluator:
 
         # 1. Ingest Documents (optional)
         if not skip_ingestion:
-            ingestion_results = await self.ingest_documents()
+            ingestion_results = await self.ingest_documents(input_dir=self.input_docs_dir)
             # Verify ingestion succeeded
             successful_ingestions = sum(1 for r in ingestion_results if r.get("status") == "success")
             if successful_ingestions == 0:
@@ -500,15 +514,20 @@ class RAGASEvaluator:
             }
 
         # 6. Save detailed results
-        os.makedirs("results", exist_ok=True)
+        # Get the directory where this script is located
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        results_dir = os.path.join(script_dir, "results")
+        os.makedirs(results_dir, exist_ok=True)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
         # Convert to Pandas for easier saving
         df_result = evaluation_result.to_pandas()
-        df_result.to_csv(f"results/results_{timestamp}.csv", index=False)
-        df_result.to_json(f"results/results_{timestamp}.json", orient="records", indent=2)
+        csv_file_path = os.path.join(results_dir, f"results_{timestamp}.csv")
+        json_file_path = os.path.join(results_dir, f"results_{timestamp}.json")
+        df_result.to_csv(csv_file_path, index=False)
+        df_result.to_json(json_file_path, orient="records", indent=2)
 
-        logger.info(f"Results saved to results/results_{timestamp}.csv")
+        logger.info(f"Results saved to {csv_file_path}")
 
         # 7. Return averages
         # Get mean scores from the pandas DataFrame
@@ -525,7 +544,7 @@ class RAGASEvaluator:
 
 def evaluate_rag_system(
         eval_dataset_path: str = "EVAL.jsonl",
-        input_docs_dir: str = "data/inputs/__enqueued__",
+        input_docs_dir: str = None,
         skip_ingestion: bool = None
 ) -> Dict[str, float]:
     """
@@ -548,7 +567,7 @@ def evaluate_rag_system(
     # Initialize Evaluator
     # Assumes LightRAG is running on default or env var URL
     rag_url = os.getenv("LIGHTRAG_API_URL", "http://localhost:9621")
-    evaluator = RAGASEvaluator(lightrag_api_url=rag_url)
+    evaluator = RAGASEvaluator(lightrag_api_url=rag_url, input_docs_dir=input_docs_dir)
 
     # Determine if we should skip ingestion
     if skip_ingestion is None:
