@@ -157,7 +157,7 @@ export const toPercent = (v?: number) =>
 // 目前未faithfulness >= 0.7 && answer_relevance >= 0.8
 export const getSampleStatus = (metrics: RagasMetrics): 'pass' | 'fail' => {
   const aa = metrics.faithfulness ?? 0;
-  const rg = metrics.answer_relevance ?? 0;
+  const rg = metrics.answer_relevancy ?? 0;
   return aa >= 0.7 && rg >= 0.8 ? 'pass' : 'fail';
 };
 
@@ -194,7 +194,7 @@ export const formatFileSize = (bytes: number) => {
 export const formatMetrics = (metrics?: Partial<Record<RagasMetricKey, number>>) => {
   return {
     faithfulness: metrics ? Math.round((metrics.faithfulness ?? 0) * 100) : 0,
-    answer_relevance: metrics ? Math.round((metrics.answer_relevance ?? 0) * 100) : 0,
+    answer_relevancy: metrics ? Math.round((metrics.answer_relevancy ?? 0) * 100) : 0,
     context_recall: metrics ? Math.round((metrics.context_recall ?? 0) * 100) : 0,
     context_precision: metrics ? Math.round((metrics.context_precision ?? 0) * 100) : 0,
   };

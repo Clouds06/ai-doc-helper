@@ -1,10 +1,8 @@
 import axios, { AxiosError } from 'axios'
 import { backendBaseUrl } from '../lib/constants'
 import { useSettingsStore } from '../stores/settings'
-import { navigationService } from '@/services/navigation'
 import { errorMessage } from '@/lib/utils'
-import { EvalSample } from '@/types'
-import { MOCK_EVAL_RESULT } from '@/data/mock'
+import { EvalSample, RagEvalResult } from '@/types'
 
 // Types
 export type LightragStatus = {
@@ -211,55 +209,56 @@ export const checkHealth = async (): Promise<
   }
 }
 
-const USE_MOCK = true;
+export async function runRagEvaluation(): Promise<RagEvalResult> {
+  const res = await axiosInstance.post(
+    '/eval/run',
+    null,
+    {
+      params: {
+        eval_dataset_path: '/mnt/d/ai-doc-helper/eval_accuracy_citation/EVAL.jsonl',
+        input_docs_dir: '/mnt/d/ai-doc-helper/lightrag/evaluation/sample_documents',
+        output_format: 'json',
+        skip_ingestion: false,
+      },
+      responseType: 'json',
+      timeout: 480000, // 8 minutes
+    }
+  )
 
-// 评测参数结构
-export interface RagEvalParams {
-  temperature: number;
-  chunk_top_k: number;
-  systemPrompt: string;
-}
+  const body = res.data
 
-// 评测结果结构
-export interface RagEvalResult {
-  total_samples: number;
-  metrics: {
-    faithfulness?: number;
-    answer_relevance?: number;
-    context_recall?: number;
-    context_precision?: number;
-  };
-  samples: EvalSample[];
-  evaluated_at?: string;
-}
+  const rawSamples = Array.isArray(body)
+    ? body
+    : Array.isArray(body.detailed_results)
+    ? body.detailed_results
+    : Array.isArray(body.results)
+    ? body.results
+    : Array.isArray(body.items)
+    ? body.items
+    : []
 
-// TODO: 把 '/rag/config' 替换后端真实的配置保存接口
-export async function saveRagParams(params: {
-  temperature: number;
-  chunk_top_k: number;
-  systemPrompt: string;
-}) {
-  if (USE_MOCK) {
-    console.log('[Mock] saveRagParams', params);
-    await new Promise((r) => setTimeout(r, 300));
-    return { status: 'success' };
+  const samples: EvalSample[] = rawSamples.map((s: any) => ({
+    question: s.question ?? s.user_input ?? '',
+    answer: (s.response ?? s.answer ?? '').toString(),
+    reference: s.reference ?? s.ground_truth ?? undefined,
+    metrics: {
+      faithfulness: typeof s.faithfulness === 'number' ? s.faithfulness : undefined,
+      answer_relevancy: typeof s.answer_relevancy === 'number' ? s.answer_relevancy : undefined,
+      context_recall: typeof s.context_recall === 'number' ? s.context_recall : undefined,
+      context_precision: typeof s.context_precision === 'number' ? s.context_precision : undefined,
+    },
+    contexts: s.contexts ?? s.used_contexts ?? '',
+  }))
+
+  return {
+    total_count: typeof body.total_count === 'number' ? body.total_count : samples.length,
+    averages: body.averages ?? {
+      faithfulness: undefined,
+      answer_relevancy: undefined,
+      context_recall: undefined,
+      context_precision: undefined,
+    },
+    results_file: body.results_file ?? body.resultsFile,
+    samples,
   }
-
-  return axiosInstance.post('/rag/save-params', params);
-}
-
-// TODO: 把 '/rag/eval' 替换成后端真实的评测接口
-export async function runRagEvaluation(params: {
-  temperature: number;
-  chunk_top_k: number;
-  systemPrompt: string;
-}) {
-  if (USE_MOCK) {
-    console.log('[Mock] Using MOCK_EVAL_RESULT');
-    await new Promise((res) => setTimeout(res, 600));
-    return MOCK_EVAL_RESULT;
-  }
-
-  const res = await axiosInstance.post('/rag/evaluate', params);
-  return res.data;
 }

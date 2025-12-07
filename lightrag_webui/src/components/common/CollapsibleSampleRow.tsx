@@ -4,6 +4,9 @@ import { ChevronDown, Quote, SearchCheck } from 'lucide-react';
 import { useState } from 'react';
 import { CollapsedScoreSummary } from './CollapesScoreSummary';
 import { DetailScoreBadges } from './DetailedScoreBadges';
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
+import rehypeSanitize from 'rehype-sanitize'
 
 interface CollapsibleSampleRowProps {
   sample: EvalSample;
@@ -13,7 +16,7 @@ interface CollapsibleSampleRowProps {
 export const CollapsibleSampleRow = ({
   sample
 } : CollapsibleSampleRowProps)=> {
-  const status = getSampleStatus(sample.metrics);
+  const status = sample.metrics ? getSampleStatus(sample.metrics) : undefined;
   const isPass = status === 'pass';
 
   const [isExpanded, setIsExpanded] = useState(false);
@@ -47,7 +50,7 @@ export const CollapsibleSampleRow = ({
               isExpanded ? 'font-bold text-gray-900' : 'font-medium'
             }`}
           >
-            {sample.query}
+            {sample.question}
           </h3>
         </div>
 
@@ -82,25 +85,52 @@ export const CollapsibleSampleRow = ({
           <div className="grid grid-cols-1 lg:grid-cols-12 divide-y lg:divide-y-0 lg:divide-x divide-gray-100">
             {/* 左侧: 生成对比区 */}
             <div className="lg:col-span-7 p-5 space-y-5">
-              {/* AI 回答 */}
+              {/* AI 回答（Markdown 渲染） */}
               <div className="space-y-1.5">
                 <div className="flex items-center gap-2 text-sm font-bold text-gray-900">
                   <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
                   模型回答
                 </div>
-                <div className="bg-blue-50/20 p-3.5 rounded-lg border border-blue-100/50 text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">
-                  {sample.answer}
+                <div className="bg-blue-50/20 p-3.5 rounded-lg border border-blue-100/50 text-sm text-gray-700 leading-relaxed">
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    rehypePlugins={[rehypeSanitize]}
+                    components={{
+                      // code block 样式
+                      code({inline, className, children, ...props}: any) {
+                        return inline ? (
+                          <code className="rounded px-1 py-0.5 bg-gray-100 text-xs" {...props}>{children}</code>
+                        ) : (
+                          <pre className="rounded-lg overflow-auto bg-gray-900 text-white text-xs p-3" {...props}>
+                            <code>{children}</code>
+                          </pre>
+                        )
+                      },
+                      a({href, children, ...props}) {
+                        return <a href={String(href)} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline" {...props}>{children}</a>
+                      },
+                      img({src, alt, ...props}) {
+                        return <img src={String(src)} alt={String(alt)} className="max-w-full rounded" {...props}/>
+                      }
+                    }}
+                  >
+                    {sample.answer ?? ''}
+                  </ReactMarkdown>
                 </div>
               </div>
 
-              {/* 标注答案 */}
+              {/* 标注答案（Markdown 渲染） */}
               <div className="space-y-1.5">
                 <div className="flex items-center gap-2 text-sm font-bold text-gray-900">
                   <span className="w-1.5 h-1.5 rounded-full bg-gray-400" />
                   标注答案
                 </div>
-                <div className="bg-gray-50 p-3.5 rounded-lg border border-gray-200/60 text-sm text-gray-600 leading-relaxed whitespace-pre-wrap">
-                  {sample.reference_answer || (
+                <div className="bg-gray-50 p-3.5 rounded-lg border border-gray-200/60 text-sm text-gray-600 leading-relaxed">
+                  {sample.reference ? (
+                    <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]}>
+                      {sample.reference}
+                    </ReactMarkdown>
+                  ) : (
                     <span className="italic text-gray-400">未提供参考答案</span>
                   )}
                 </div>
