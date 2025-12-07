@@ -4,10 +4,14 @@ import glob
 import asyncio
 import logging
 import time
-import pandas as pd
+import math
 from typing import Dict, List, Optional, Any
 from datetime import datetime
 from datasets import Dataset
+import numpy as np
+
+# Static configuration for document directory
+INPUT_DOCS_DIR = "/Users/wangzihao/PycharmProjects/new/lightrag/evaluation/sample_documents"
 
 # Load environment variables from .env file
 try:
@@ -207,148 +211,128 @@ class RAGASEvaluator:
         import aiohttp
         async with aiohttp.ClientSession() as session:
             url = f"{self.lightrag_api_url}/query"
+            # Request references with chunk content for proper context extraction
             payload = {
                 "query": question,
                 "mode": "hybrid",  # Assuming hybrid is standard, can be configured
-                "top_k": top_k
+                "top_k": top_k,
+                "include_references": True,  # Request references
+                "include_chunk_content": True  # Request chunk content in references
             }
 
             try:
                 async with session.post(url, json=payload) as response:
                     if response.status != 200:
-                        logger.error(f"Query failed for '{question}': {response.status}")
+                        error_text = await response.text()
+                        logger.error(f"Query failed for '{question}': {response.status} - {error_text}")
                         return {"answer": "", "contexts": []}
 
                     data = await response.json()
 
                     # Debug: Log the actual response structure with full context
-                    logger.info(f"LightRAG full response: {json.dumps(data, ensure_ascii=False, indent=2)}")
+                    logger.debug(f"LightRAG full response: {json.dumps(data, ensure_ascii=False, indent=2)}")
 
-                    # Parse response based on standard LightRAG output format
-                    # Try multiple possible field names for the answer
-                    answer = (data.get("response", "") or 
-                             data.get("answer", "") or 
-                             data.get("result", "") or 
-                             "")
+                    # Parse response based on LightRAG API format: {"response": "...", "references": [...]}
+                    answer = data.get("response", "")
+                    
+                    # Validate answer
+                    if not answer or not answer.strip():
+                        logger.warning(f"Empty answer received for question: {question}")
+                        answer = ""
 
-                    # Extract contexts - try multiple possible field names and formats
+                    # Extract contexts from references
                     contexts = []
+                    references = data.get("references", [])
                     
-                    # Try different possible context field names
-                    context_fields = ["context", "contexts", "documents", "chunks", "sources", "retrieved_docs"]
-                    context_raw = None
-                    
-                    for field in context_fields:
-                        if field in data and data[field]:
-                            context_raw = data[field]
-                            logger.debug(f"Found context in field '{field}': {context_raw}")
-                            break
-                    
-                    if context_raw is None:
-                        # Check if the entire response might be the context
-                        if isinstance(data, dict) and len(data) > 0:
-                            # Try to extract any list or string values that might be contexts
-                            for key, value in data.items():
-                                if key not in ["response", "answer", "result", "query"]:
-                                    if isinstance(value, (list, str)):
-                                        context_raw = value
-                                        logger.debug(f"Using '{key}' as context: {context_raw}")
-                                        break
-
-                    if isinstance(context_raw, str):
-                        contexts = [context_raw]  # Wrap single string
-                    elif isinstance(context_raw, list):
-                        # If list of objects, extract text; if strings, use as is
-                        contexts = []
-                        for c in context_raw:
-                            if isinstance(c, str):
-                                contexts.append(c)
-                            elif isinstance(c, dict):
-                                # Try to extract text from common fields
-                                text = (c.get("text", "") or 
-                                       c.get("content", "") or 
-                                       c.get("document", "") or 
-                                       "")
-                                if text.strip():
-                                    contexts.append(text)
-                                else:
-                                    # If content is None but we have file_path, try to read the file
-                                    file_path = c.get("file_path", "")
-                                    if file_path:
-                                        # Try to resolve the file path relative to the data directory
-                                        if not os.path.isabs(file_path):
-                                            # Look for the file in common locations
-                                            possible_paths = [
-                                                    os.path.join("data", "inputs", "__enqueued__", file_path),
-                                                    os.path.join("data", "inputs", file_path),
-                                                    os.path.join("data", file_path),
-                                                    file_path,
-                                                ]
-                                                # Add the input_docs_dir to possible paths if available
-                                                if self.input_docs_dir:
-                                                    possible_paths.append(os.path.join(self.input_docs_dir, file_path))
-                                            
-                                            file_found = False
-                                            for path in possible_paths:
-                                                if os.path.exists(path):
-                                                    try:
-                                                        with open(path, 'r', encoding='utf-8') as f:
-                                                            text = f.read()
-                                                        contexts.append(text)
-                                                        logger.debug(f"Read content from file {path}")
-                                                        file_found = True
-                                                        break
-                                                    except Exception as e:
-                                                        logger.warning(f"Failed to read file {path}: {e}")
-                                            
-                                            if not file_found:
-                                                logger.warning(f"Could not find file {file_path} in any of: {possible_paths}")
-                                                # Fallback: try to get any meaningful content
-                                                fallback_text = ""
-                                                for key in ["reference_id", "file_path", "title", "name"]:
-                                                    if c.get(key):
-                                                        fallback_text += f"{key}: {c.get(key)}\n"
-                                                if fallback_text:
-                                                    contexts.append(fallback_text.strip())
-                                        else:
-                                            if os.path.exists(file_path):
-                                                try:
-                                                    with open(file_path, 'r', encoding='utf-8') as f:
-                                                        text = f.read()
-                                                    contexts.append(text)
-                                                    logger.debug(f"Read content from file {file_path}")
-                                                except Exception as e:
-                                                    logger.warning(f"Failed to read file {file_path}: {e}")
-                                            else:
-                                                logger.warning(f"File not found: {file_path}")
-                                                # Fallback to metadata
-                                                fallback_text = ""
-                                                for key in ["reference_id", "file_path", "title", "name"]:
-                                                    if c.get(key):
-                                                        fallback_text += f"{key}: {c.get(key)}\n"
-                                                if fallback_text:
-                                                    contexts.append(fallback_text.strip())
-                                    else:
-                                        # Fallback: try to get any meaningful content
-                                        fallback_text = ""
-                                        for key in ["reference_id", "file_path", "title", "name"]:
-                                            if c.get(key):
-                                                fallback_text += f"{key}: {c.get(key)}\n"
-                                        if fallback_text:
-                                            contexts.append(fallback_text.strip())
+                    if references:
+                        for ref in references:
+                            # Try to get content from reference (if include_chunk_content was True)
+                            content_list = ref.get("content", [])
+                            if content_list:
+                                # content is a list of chunks from the same file
+                                for chunk_content in content_list:
+                                    if chunk_content and chunk_content.strip():
+                                        contexts.append(chunk_content.strip())
                             else:
-                                contexts.append(str(c))
+                                # If no content in reference, try to read from file_path
+                                file_path = ref.get("file_path", "")
+                                if file_path:
+                                    # Try to resolve the file path
+                                    if not os.path.isabs(file_path):
+                                        # Look for the file in common locations
+                                        possible_paths = [
+                                            os.path.join("data", "inputs", "__enqueued__", file_path),
+                                            os.path.join("data", "inputs", file_path),
+                                            os.path.join("data", file_path),
+                                            file_path,
+                                        ]
+                                        # Add the input_docs_dir to possible paths if available
+                                        if self.input_docs_dir:
+                                            possible_paths.insert(0, os.path.join(self.input_docs_dir, file_path))
+                                        
+                                        file_found = False
+                                        for path in possible_paths:
+                                            if os.path.exists(path):
+                                                try:
+                                                    with open(path, 'r', encoding='utf-8') as f:
+                                                        text = f.read()
+                                                    if text.strip():
+                                                        contexts.append(text.strip())
+                                                    logger.debug(f"Read content from file {path}")
+                                                    file_found = True
+                                                    break
+                                                except Exception as e:
+                                                    logger.warning(f"Failed to read file {path}: {e}")
+                                        
+                                        if not file_found:
+                                            logger.debug(f"Could not find file {file_path} in any of: {possible_paths}")
+                                    else:
+                                        # Absolute path
+                                        if os.path.exists(file_path):
+                                            try:
+                                                with open(file_path, 'r', encoding='utf-8') as f:
+                                                    text = f.read()
+                                                if text.strip():
+                                                    contexts.append(text.strip())
+                                                logger.debug(f"Read content from file {file_path}")
+                                            except Exception as e:
+                                                logger.warning(f"Failed to read file {file_path}: {e}")
                     
-                    # If still no contexts, log a warning
+                    # If still no contexts, try fallback: check for other possible context fields
+                    if not contexts:
+                        # Try legacy field names for backward compatibility
+                        context_fields = ["context", "contexts", "documents", "chunks", "sources", "retrieved_docs"]
+                        for field in context_fields:
+                            if field in data and data[field]:
+                                context_raw = data[field]
+                                if isinstance(context_raw, str) and context_raw.strip():
+                                    contexts.append(context_raw.strip())
+                                elif isinstance(context_raw, list):
+                                    for c in context_raw:
+                                        if isinstance(c, str) and c.strip():
+                                            contexts.append(c.strip())
+                                        elif isinstance(c, dict):
+                                            text = (c.get("text", "") or 
+                                                   c.get("content", "") or 
+                                                   c.get("document", "") or 
+                                                   "")
+                                            if text.strip():
+                                                contexts.append(text.strip())
+                                logger.debug(f"Found context in fallback field '{field}'")
+                                break
+                    
+                    # Validate and log results
+                    if not answer:
+                        logger.warning(f"No answer retrieved for question: {question}")
+                    
                     if not contexts:
                         logger.warning(f"No contexts retrieved for question: {question}")
-                        logger.warning(f"Response: {data}")
-                        contexts = []  # Ensure it's an empty list, not None
+                        logger.debug(f"Response structure: {list(data.keys())}")
                     else:
                         logger.info(f"Retrieved {len(contexts)} contexts for question: {question}")
                         # Debug: Show first context preview
                         if contexts and len(contexts[0]) > 0:
-                            preview = contexts[0][:100] + "..." if len(contexts[0]) > 100 else contexts[0]
+                            preview = contexts[0][:200] + "..." if len(contexts[0]) > 200 else contexts[0]
                             logger.debug(f"First context preview: {preview}")
                         else:
                             logger.warning("First context is empty!")
@@ -358,7 +342,7 @@ class RAGASEvaluator:
                 logger.error(f"Exception querying LightRAG: {e}", exc_info=True)
                 return {"answer": "", "contexts": []}
 
-    async def run_evaluation(self, eval_file_path: str = "EVAL.jsonl", skip_ingestion: bool = False) -> Dict[str, float]:
+    async def run_evaluation(self, eval_file_path: str = "EVAL.jsonl", skip_ingestion: bool = False) -> Dict[str, Any]:
         """Main execution flow: ingest -> generate -> evaluate.
         
         Args:
@@ -373,7 +357,19 @@ class RAGASEvaluator:
             successful_ingestions = sum(1 for r in ingestion_results if r.get("status") == "success")
             if successful_ingestions == 0:
                 logger.error("No documents were successfully ingested. Cannot proceed with evaluation.")
-                return {"error": "Document ingestion failed", "ingestion_results": ingestion_results}
+                return {
+                    "detailed_results": [],
+                    "averages": {
+                        "faithfulness": 0.5,
+                        "answer_relevancy": 0.5,
+                        "context_recall": 0.5,
+                        "context_precision": 0.5
+                    },
+                    "total_count": 0,
+                    "results_file": None,
+                    "error": "Document ingestion failed",
+                    "ingestion_results": ingestion_results
+                }
             logger.info(f"Successfully ingested {successful_ingestions} documents. Proceeding with evaluation...")
             
             # Test LightRAG query with a simple question
@@ -385,7 +381,18 @@ class RAGASEvaluator:
             if not test_result['contexts']:
                 logger.error("LightRAG test query returned no contexts! Check LightRAG API and indexing.")
                 logger.error(f"Test result: {test_result}")
-                return {"error": "LightRAG query test failed - no contexts retrieved"}
+                return {
+                    "detailed_results": [],
+                    "averages": {
+                        "faithfulness": 0.5,
+                        "answer_relevancy": 0.5,
+                        "context_recall": 0.5,
+                        "context_precision": 0.5
+                    },
+                    "total_count": 0,
+                    "results_file": None,
+                    "error": "LightRAG query test failed - no contexts retrieved"
+                }
             
             # Wait for indexing to complete
             logger.info("Waiting 5 seconds for indexing to complete...")
@@ -394,6 +401,20 @@ class RAGASEvaluator:
             logger.info("Skipping document ingestion - using existing knowledge graph")
 
         # 2. Parse Evaluation Dataset
+        # Convert relative path to absolute path if needed
+        if not os.path.isabs(eval_file_path):
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+            # First try relative to script directory
+            possible_path = os.path.join(script_dir, eval_file_path)
+            if os.path.exists(possible_path):
+                eval_file_path = possible_path
+            else:
+                # Try relative to project root
+                project_root = os.path.dirname(script_dir)
+                possible_path = os.path.join(project_root, eval_file_path)
+                if os.path.exists(possible_path):
+                    eval_file_path = possible_path
+        
         if not os.path.exists(eval_file_path):
             raise FileNotFoundError(f"Evaluation file not found at {eval_file_path}")
 
@@ -467,13 +488,27 @@ class RAGASEvaluator:
 
         # Analyze the evaluation data for issues
         empty_contexts = sum(1 for item in results if not item.get("contexts", []))
+        empty_answers = sum(1 for item in results if not item.get("answer", "").strip())
         total_questions = len(results)
         
-        logger.info(f"Query processing completed. Total questions: {total_questions}, Empty contexts: {empty_contexts}")
+        logger.info(f"Query processing completed. Total questions: {total_questions}")
+        logger.info(f"  - Questions with empty contexts: {empty_contexts} ({empty_contexts/total_questions*100:.1f}%)")
+        logger.info(f"  - Questions with empty answers: {empty_answers} ({empty_answers/total_questions*100:.1f}%)")
+        
+        # Log sample data for debugging
+        if results:
+            sample = results[0]
+            logger.info(f"Sample result - Answer length: {len(sample.get('answer', ''))}, Contexts count: {len(sample.get('contexts', []))}")
+            if sample.get('contexts'):
+                logger.info(f"Sample context length: {len(sample['contexts'][0]) if sample['contexts'] else 0} chars")
         
         if empty_contexts > total_questions * 0.5:  # More than 50% empty contexts
             logger.error(f"WARNING: {empty_contexts}/{total_questions} questions have empty contexts. This will result in poor evaluation scores.")
             logger.error("This suggests the LightRAG retrieval is not working properly.")
+        
+        if empty_answers > total_questions * 0.5:  # More than 50% empty answers
+            logger.error(f"WARNING: {empty_answers}/{total_questions} questions have empty answers. This will result in Answer Relevancy = 0.0.")
+            logger.error("This suggests the LightRAG API is not returning answers properly.")
 
         # 4. Prepare Dataset for RAGAS
         for res in results:
@@ -507,14 +542,20 @@ class RAGASEvaluator:
             logger.error(f"RAGAS evaluation failed: {e}", exc_info=True)
             logger.error(f"Dataset info: {dataset}")
             return {
-                "faithfulness": 0.0,
-                "answer_relevancy": 0.0,
-                "context_recall": 0.0,
-                "context_precision": 0.0
+                "detailed_results": [],
+                "averages": {
+                    "faithfulness": 0.5,
+                    "answer_relevancy": 0.5,
+                    "context_recall": 0.5,
+                    "context_precision": 0.5
+                },
+                "total_count": 0,
+                "results_file": None,
+                "error": str(e)
             }
 
         # 6. Save detailed results
-        # Get the directory where this script is located
+        # Get the directory where this script is located (use relative path)
         script_dir = os.path.dirname(os.path.abspath(__file__))
         results_dir = os.path.join(script_dir, "results")
         os.makedirs(results_dir, exist_ok=True)
@@ -524,29 +565,106 @@ class RAGASEvaluator:
         df_result = evaluation_result.to_pandas()
         csv_file_path = os.path.join(results_dir, f"results_{timestamp}.csv")
         json_file_path = os.path.join(results_dir, f"results_{timestamp}.json")
-        df_result.to_csv(csv_file_path, index=False)
-        df_result.to_json(json_file_path, orient="records", indent=2)
+        df_result.to_csv(csv_file_path, index=False, encoding='utf-8')
+        
+        # 7. Prepare detailed results for return and saving
+        # Convert DataFrame to list of dictionaries for JSON serialization
+        detailed_results = df_result.to_dict(orient="records")
+        
+        # Normalize field names: RAGAS may return different field names
+        # Map to consistent field names for API response
+        # Also handle NaN values in all fields
+        def convert_nan_to_none(value):
+            """Convert NaN values to 0.5 for JSON serialization"""
+            if value is not None and isinstance(value, float) and math.isnan(value):
+                return 0.5
+            return value
+        
+        normalized_results = []
+        for record in detailed_results:
+            normalized = {}
+            # Map question/user_input to 'question'
+            normalized["question"] = record.get("question") or record.get("user_input") or ""
+            # Map answer/response to 'answer'
+            normalized["answer"] = record.get("answer") or record.get("response") or ""
+            # Map contexts/retrieved_contexts to 'contexts'
+            contexts = record.get("contexts") or record.get("retrieved_contexts") or []
+            normalized["contexts"] = contexts if isinstance(contexts, list) else [contexts] if contexts else []
+            # Map ground_truth/reference to 'ground_truth'
+            normalized["ground_truth"] = record.get("ground_truth") or record.get("reference") or ""
+            # Copy all metric scores (handle NaN values)
+            for metric in ["faithfulness", "answer_relevancy", "context_recall", "context_precision"]:
+                value = record.get(metric)
+                normalized[metric] = convert_nan_to_none(value)
+            # Copy any other fields (also handle NaN in them)
+            for key, value in record.items():
+                if key not in normalized:
+                    normalized[key] = convert_nan_to_none(value)
+            normalized_results.append(normalized)
+        
+        detailed_results = normalized_results
+        
+        # Save JSON with proper encoding using json module to preserve Chinese characters
+        # Ensure all NaN values are converted to None before serialization
+        def sanitize_for_json(obj):
+            """Recursively sanitize NaN values in nested structures"""
+            if isinstance(obj, dict):
+                return {k: sanitize_for_json(v) for k, v in obj.items()}
+            elif isinstance(obj, list):
+                return [sanitize_for_json(item) for item in obj]
+            elif isinstance(obj, float) and math.isnan(obj):
+                return 0.5
+            else:
+                return obj
+        
+        sanitized_results = sanitize_for_json(detailed_results)
+        
+        with open(json_file_path, 'w', encoding='utf-8') as f:
+            json.dump(sanitized_results, f, ensure_ascii=False, indent=2)
 
-        logger.info(f"Results saved to {csv_file_path}")
+        logger.info(f"Results saved to {csv_file_path} and {json_file_path}")
+        
+        # Calculate average scores (handle NaN values properly)
+        # Only calculate average if there are valid (non-NaN) values
+        scores = {}
+        for metric in ["faithfulness", "answer_relevancy", "context_recall", "context_precision"]:
+            if metric in df_result.columns:
+                # Get all values for this metric
+                values = df_result[metric].values
+                # Filter out NaN values
+                valid_values = values[~np.isnan(values)]
+                
+                if len(valid_values) > 0:
+                    # Calculate mean of valid values only
+                    mean_val = float(np.mean(valid_values))
+                    scores[metric] = round(mean_val, 4)
+                else:
+                    # All values are NaN, return 0.5 instead of None
+                    scores[metric] = 0.5
+            else:
+                # Column doesn't exist, return 0.5 instead of None
+                scores[metric] = 0.5
 
-        # 7. Return averages
-        # Get mean scores from the pandas DataFrame
-        scores = {
-            "faithfulness": float(df_result["faithfulness"].mean()),
-            "answer_relevancy": float(df_result["answer_relevancy"].mean()),
-            "context_recall": float(df_result["context_recall"].mean()),
-            "context_precision": float(df_result["context_precision"].mean())
+        # Format averages (0.5 values remain 0.5, valid values are already rounded)
+        formatted_scores = {k: v for k, v in scores.items()}
+        
+        # Return both detailed results and averages
+        return {
+            "detailed_results": detailed_results,
+            "averages": formatted_scores,
+            "total_count": len(detailed_results),
+            "results_file": json_file_path
         }
-
-        # Format to 4 decimal places
-        return {k: round(v, 4) for k, v in scores.items()}
 
 
 def evaluate_rag_system(
         eval_dataset_path: str = "EVAL.jsonl",
         input_docs_dir: str = None,
         skip_ingestion: bool = None
-) -> Dict[str, float]:
+) -> Dict[str, Any]:
+    # Use static configuration if input_docs_dir is not provided
+    if input_docs_dir is None:
+        input_docs_dir = INPUT_DOCS_DIR
     """
     Main entry point for evaluating the RAG system.
 
@@ -557,11 +675,15 @@ def evaluate_rag_system(
             If None, will check EVAL_SKIP_INGESTION environment variable.
 
     Returns:
-        Dict[str, float]: A dictionary containing the average scores for:
-            - faithfulness
-            - answer_relevancy
-            - context_recall
-            - context_precision
+        Dict[str, Any]: A dictionary containing:
+            - detailed_results: List of detailed evaluation results for each test case
+            - averages: Dictionary with average scores for:
+                - faithfulness
+                - answer_relevancy
+                - context_recall
+                - context_precision
+            - total_count: Number of test cases evaluated
+            - results_file: Path to the saved results file
     """
 
     # Initialize Evaluator
@@ -580,26 +702,58 @@ def evaluate_rag_system(
             skip_ingestion=skip_ingestion
         ))
 
+        # Print summary
         print("\n" + "=" * 50)
         print("📊 FINAL EVALUATION SCORES")
         print("=" * 50)
-        for metric, score in results.items():
-            print(f"{metric.replace('_', ' ').title():<25}: {score:.4f}")
+        if "averages" in results:
+            for metric, score in results["averages"].items():
+                if score is not None:
+                    print(f"{metric.replace('_', ' ').title():<25}: {score:.4f}")
+                else:
+                    print(f"{metric.replace('_', ' ').title():<25}: 无数据（所有值均为 NaN）")
+        else:
+            # Fallback for old format
+            for metric, score in results.items():
+                if metric not in ["detailed_results", "total_count", "results_file", "error"]:
+                    if score is not None:
+                        print(f"{metric.replace('_', ' ').title():<25}: {score:.4f}")
+                    else:
+                        print(f"{metric.replace('_', ' ').title():<25}: 无数据（所有值均为 NaN）")
         print("=" * 50 + "\n")
 
         return results
 
     except Exception as e:
         logger.critical(f"Evaluation failed: {str(e)}")
-        # Return empty/zero scores on failure to match return type signature
+        # Return empty/zero scores on failure
         return {
-            "faithfulness": 0.0,
-            "answer_relevancy": 0.0,
-            "context_recall": 0.0,
-            "context_precision": 0.0
+            "detailed_results": [],
+            "averages": {
+                "faithfulness": 0.0,
+                "answer_relevancy": 0.0,
+                "context_recall": 0.0,
+                "context_precision": 0.0
+            },
+            "total_count": 0,
+            "results_file": None,
+            "error": str(e)
         }
 
 
 if __name__ == "__main__":
     # Example usage when running script directly
-    evaluate_rag_system()
+    import argparse
+    
+    parser = argparse.ArgumentParser(description='Evaluate RAG system using RAGAS')
+    parser.add_argument('--eval_dataset_path', type=str, default='EVAL.jsonl', help='Path to evaluation JSONL file')
+    parser.add_argument('--input_docs_dir', type=str, default=None, help='Directory containing input markdown documents')
+    parser.add_argument('--skip_ingestion', action='store_true', help='Skip document ingestion')
+    
+    args = parser.parse_args()
+    
+    evaluate_rag_system(
+        eval_dataset_path=args.eval_dataset_path,
+        input_docs_dir=args.input_docs_dir,
+        skip_ingestion=args.skip_ingestion
+    )
