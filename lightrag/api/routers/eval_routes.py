@@ -8,12 +8,19 @@ import asyncio
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import JSONResponse, FileResponse
+from fastapi.responses import JSONResponse, FileResponse, Response
 from lightrag.api.utils_api import get_combined_auth_dependency
 
 # Import evaluation functions
 import sys
-sys.path.append('/Users/wangzihao/PycharmProjects/new/eval_accuracy_citation')
+# Use relative path to find eval_accuracy_citation directory
+current_dir = Path(__file__).parent.parent.parent
+eval_dir = current_dir / "eval_accuracy_citation"
+if eval_dir.exists():
+    sys.path.insert(0, str(eval_dir))
+else:
+    # Fallback to absolute path if relative path doesn't work
+    sys.path.append('/Users/wangzihao/PycharmProjects/new/eval_accuracy_citation')
 from ragas_evaluation import evaluate_rag_system, RAGASEvaluator
 
 router = APIRouter(tags=["evaluation"])
@@ -101,7 +108,14 @@ def create_eval_routes(api_key: str = None):
             HTTPException: If the evaluation data file cannot be read
         """
         try:
-            eval_file_path = Path("/Users/wangzihao/PycharmProjects/new/eval_accuracy_citation/EVAL.jsonl")
+            # Use relative path to find EVAL.jsonl
+            current_dir = Path(__file__).parent.parent.parent
+            eval_file_path = current_dir / "eval_accuracy_citation" / "EVAL.jsonl"
+            
+            # Fallback to absolute path if relative path doesn't exist
+            if not eval_file_path.exists():
+                eval_file_path = Path("/Users/wangzihao/PycharmProjects/new/eval_accuracy_citation/EVAL.jsonl")
+            
             eval_data = []
             
             with open(eval_file_path, "r", encoding="utf-8") as f:
@@ -179,7 +193,7 @@ def create_eval_routes(api_key: str = None):
         }
     )
     async def run_evaluation(
-        eval_dataset_path: Optional[str] = "/Users/wangzihao/PycharmProjects/new/eval_accuracy_citation/EVAL.jsonl",
+        eval_dataset_path: Optional[str] = None,
         input_docs_dir: Optional[str] = None,
         skip_ingestion: Optional[bool] = None,
         output_format: Optional[str] = "json"
@@ -187,17 +201,21 @@ def create_eval_routes(api_key: str = None):
         """
         Run evaluation on the LightRAG system using the RAGAS framework.
         
-        This endpoint triggers the evaluation process and returns the results file
-        in either JSON or CSV format.
+        This endpoint triggers the evaluation process and returns the results
+        in JSON format with detailed evaluation data.
         
         Args:
-            eval_dataset_path: Path to the evaluation JSONL file
+            eval_dataset_path: Path to the evaluation JSONL file (if None, uses default)
             input_docs_dir: Directory containing documents to ingest
             skip_ingestion: If True, skip document ingestion
-            output_format: Format of the output file ("json" or "csv")
+            output_format: Format of the output ("json" or "csv") - currently only JSON is supported for API response
             
         Returns:
-            FileResponse: The evaluation results file
+            JSONResponse: The evaluation results in JSON format containing:
+                - detailed_results: List of detailed evaluation results for each test case
+                - averages: Dictionary with average scores
+                - total_count: Number of test cases evaluated
+                - results_file: Path to the saved results file
         
         Raises:
             HTTPException: If the evaluation fails or the file format is invalid
@@ -206,6 +224,25 @@ def create_eval_routes(api_key: str = None):
             # Validate output format
             if output_format not in ["json", "csv"]:
                 raise HTTPException(status_code=400, detail="Invalid output format. Must be either 'json' or 'csv'")
+            
+            # Use relative path to find EVAL.jsonl if not provided
+            if eval_dataset_path is None:
+                current_dir = Path(__file__).parent.parent.parent
+                default_eval_path = current_dir / "eval_accuracy_citation" / "EVAL.jsonl"
+                if default_eval_path.exists():
+                    eval_dataset_path = str(default_eval_path)
+                else:
+                    # Fallback to absolute path
+                    eval_dataset_path = "/Users/wangzihao/PycharmProjects/new/eval_accuracy_citation/EVAL.jsonl"
+            
+            # Convert relative paths to absolute if needed
+            if eval_dataset_path and not os.path.isabs(eval_dataset_path):
+                current_dir = Path(__file__).parent.parent.parent
+                eval_dataset_path = str(current_dir / eval_dataset_path)
+            
+            if input_docs_dir and not os.path.isabs(input_docs_dir):
+                current_dir = Path(__file__).parent.parent.parent
+                input_docs_dir = str(current_dir / input_docs_dir)
             
             # Initialize evaluator and run evaluation
             evaluator = RAGASEvaluator(input_docs_dir=input_docs_dir)
@@ -218,8 +255,25 @@ def create_eval_routes(api_key: str = None):
             if "error" in results:
                 raise HTTPException(status_code=500, detail=f"Evaluation failed: {results['error']}")
             
+            # For JSON format, return the detailed results directly
+            # Use custom Response to ensure proper UTF-8 encoding without ASCII escaping
+            if output_format == "json":
+                json_str = json.dumps(results, ensure_ascii=False, indent=2)
+                return Response(
+                    content=json_str,
+                    media_type="application/json; charset=utf-8",
+                    headers={"Content-Type": "application/json; charset=utf-8"}
+                )
+            
+            # For CSV format, return the file (but still save JSON for API compatibility)
             # Find the latest results file
-            results_dir = Path("/Users/wangzihao/PycharmProjects/new/eval_accuracy_citation/results")
+            current_dir = Path(__file__).parent.parent.parent
+            results_dir = current_dir / "eval_accuracy_citation" / "results"
+            
+            # Fallback to absolute path if relative doesn't exist
+            if not results_dir.exists():
+                results_dir = Path("/Users/wangzihao/PycharmProjects/new/eval_accuracy_citation/results")
+            
             if not results_dir.exists():
                 raise HTTPException(status_code=500, detail="Results directory not found")
             
@@ -234,7 +288,7 @@ def create_eval_routes(api_key: str = None):
             # Return the latest file
             return FileResponse(
                 path=latest_file,
-                media_type=f"application/{output_format}",
+                media_type=f"text/{output_format}",
                 filename=latest_file.name
             )
             
