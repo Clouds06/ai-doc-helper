@@ -1,39 +1,25 @@
-import { MOCK_EVAL_RESULT } from '@/data/mock';
 import { RagasMetricKey, EvalSample } from '@/types';
-import { Check, RotateCcw, ListFilter } from 'lucide-react';
-import { SavedParamsSnapshot } from '../settings/SettingsModal';
+import { ListFilter } from 'lucide-react';
 import { CollapsibleSampleRow } from './CollapsibleSampleRow';
 import { MetricCard } from './MetricCard';
 import { useRagStore } from '@/hooks/useRagStore';
 import { formatMetrics } from '@/lib/utils';
 import { useMemo } from 'react';
 
-interface EvalResultDisplayProps {
-  hasEvaluated: boolean;
-  lastEvalParams: SavedParamsSnapshot | null;
-  isEvalButtonDisabled: boolean;
-  onStartEvaluation: () => void;
-}
-
-export const EvalResultDisplay = ({
-  hasEvaluated,
-  lastEvalParams,
-  isEvalButtonDisabled,
-  onStartEvaluation,
-}: EvalResultDisplayProps) => {
+export const EvalResultDisplay = () => {
   const evalResult = useRagStore((s) => s.evalResult);
   const prevEvalResult = useRagStore((s) => s.prevEvalResult);
 
-  const result = hasEvaluated ? evalResult ?? MOCK_EVAL_RESULT : null;
+  const result = evalResult ?? null;
 
   const topMetricValues = useMemo(
-    () => formatMetrics(evalResult?.metrics),
-    [evalResult?.metrics],
+    () => formatMetrics(evalResult?.averages),
+    [evalResult?.averages],
   );
 
   const previousMetricValues = useMemo(
-    () => formatMetrics(prevEvalResult?.metrics),
-    [prevEvalResult?.metrics],
+    () => formatMetrics(prevEvalResult?.averages),
+    [prevEvalResult?.averages],
   );
 
   return (
@@ -41,36 +27,6 @@ export const EvalResultDisplay = ({
       <div className="flex justify-between items-end mb-1">
         <div>
           <h2 className="text-lg font-bold text-gray-900">评测结果</h2>
-          {lastEvalParams && (
-            <p className="text-xs text-gray-400 mt-1">
-              基于参数: 温度 {lastEvalParams.temperature}, 文本块召回数量{' '}
-              {lastEvalParams.chunkTopK}
-            </p>
-          )}
-        </div>
-
-        <div className="relative group/btn">
-          <button
-            onClick={onStartEvaluation}
-            disabled={isEvalButtonDisabled}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-all shadow-sm ${
-              isEvalButtonDisabled
-                ? 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200'
-                : 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-indigo-200 hover:shadow-md'
-            }`}
-          >
-            {isEvalButtonDisabled ? (
-              <>
-                <Check size={16} />
-                当前参数已评测
-              </>
-            ) : (
-              <>
-                <RotateCcw size={16} />
-                {hasEvaluated ? '重新评测' : '开始评测'}
-              </>
-            )}
-          </button>
         </div>
       </div>
 
@@ -79,7 +35,7 @@ export const EvalResultDisplay = ({
         {(
           [
             'faithfulness',
-            'answer_relevance',
+            'answer_relevancy',
             'context_recall',
             'context_precision',
           ] as RagasMetricKey[]
@@ -104,7 +60,7 @@ export const EvalResultDisplay = ({
               </div>
               <div className="flex items-center gap-3">
                 <div className="hidden md:flex items-center gap-2 mr-3 text-xs font-medium text-gray-600 px-3 py-1.5">
-                  <span>{result.total_samples} 样本已评测</span>
+                  <span>{result.total_count} 个样本已评测</span>
                 </div>
               </div>
               <div className="hidden sm:flex items-center gap-3 text-[12px] text-gray-400">
@@ -118,7 +74,7 @@ export const EvalResultDisplay = ({
             </div>
 
             {result.samples.map((sample: EvalSample, idx: number) => (
-              <CollapsibleSampleRow key={sample.id} sample={sample} index={idx} />
+              <CollapsibleSampleRow key={idx} sample={sample} index={idx} />
             ))}
 
             <div className="text-center text-[12px] text-gray-300 py-6">

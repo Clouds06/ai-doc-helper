@@ -31,7 +31,7 @@ export const MetricCard = ({ metricKey, value, previousValue } : MetricCardProps
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-3">
+        {/* <div className="flex items-center gap-3">
           {previousValue !== undefined && (
             <div
               className={`flex items-center text-xs font-medium px-1.5 py-0.5 rounded ${
@@ -50,7 +50,7 @@ export const MetricCard = ({ metricKey, value, previousValue } : MetricCardProps
               {Math.abs(diff)}%
             </div>
           )}
-        </div>
+        </div> */}
       </div>
       <div className="opacity-90 group-hover:opacity-100 transition-opacity pl-4 border-l border-gray-50">
         <CircularProgress value={value} color={def.color} />

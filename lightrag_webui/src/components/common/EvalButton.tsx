@@ -14,7 +14,7 @@ export const EvalButton = ({ onStartEvaluation }: EvalButtonProps) => {
         准备好开始评测了吗？
       </h2>
       <p className="text-gray-500 max-w-md mb-8 leading-relaxed">
-        系统将使用你刚才保存的参数进行首次全量评估。
+        系统将使用预设文档和问答进行全量评测。
       </p>
       <button
         onClick={onStartEvaluation}

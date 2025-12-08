@@ -10,7 +10,6 @@ import {
   ChatSession,
   ChatMessage,
   Citation,
-  EvalResult
 } from '../types'; // 假设你的类型定义在 types.ts 中
 
 export interface ThemeStyle {
@@ -227,64 +226,3 @@ export const PLACEHOLDER_LOOP_WORDS = [
   '如何调用用户鉴权 API？请给出示例代码。',
   '查询最新的员工差旅报销合规政策。',
 ];
-
-export const MOCK_EVAL_RESULT: EvalResult = {
-  total_samples: 3,
-  metrics: {
-    faithfulness: 0.82,
-    answer_relevance: 0.93,
-    context_recall: 0.76,
-    context_precision: 0.69,
-  },
-  samples: [
-    {
-      id: 1,
-      query: '合同违约金比例的上限是多少？',
-      answer:
-        '根据合同条款，违约金比例上限为 30%，超过部分将被视为无效。',
-      reference_answer: '违约金比例上限为 30%。',
-      contexts: [
-        'contract_v2.pdf [P12]: 第五条 违约责任... 甲方有权要求乙方支付违约金，比例不得超过合同总额的30%。',
-        'legal_advice_2024.txt: 对于超过30%的过高违约金，法院通常不予支持。',
-      ],
-      metrics: {
-        faithfulness: 0.95,
-        answer_relevance: 0.98,
-        context_recall: 1.0,
-        context_precision: 1.0,
-      },
-    },
-    {
-      id: 2,
-      query: '推荐使用哪种向量数据库？',
-      answer: '推荐使用 Milvus，因为它开源且社区活跃。',
-      reference_answer: '推荐方案为 Milvus，Pinecone 作为备选。',
-      contexts: [
-        'arch_decision_record.md: 向量库选型对比：Milvus 性能最优，Pinecone 易用性最好。最终决定采用 Milvus。',
-      ],
-      metrics: {
-        faithfulness: 0.86,
-        answer_relevance: 0.9,
-        context_recall: 0.8,
-        context_precision: 0.8,
-      },
-    },
-    {
-      id: 3,
-      query: 'Q3 净利润增长的主要原因是什么？',
-      answer: '主要原因是广告业务收入增长。',
-      reference_answer:
-        'Q3 净利润增长主要由云服务收入增长驱动，同时成本优化带来利润率提升。',
-      contexts: [
-        'financial_q3.xlsx: 云计算部门收入同比增长 45%。',
-        'marketing_report.ppt: 广告业务本季度持平。',
-      ],
-      metrics: {
-        faithfulness: 0.3,
-        answer_relevance: 0.7,
-        context_recall: 0.6,
-        context_precision: 0.6,
-      },
-    },
-  ],
-};

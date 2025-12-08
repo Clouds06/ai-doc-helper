@@ -1,6 +1,5 @@
 import React from 'react';
 import { Activity } from 'lucide-react';
-import type { SavedParamsSnapshot } from './SettingsModal';
 import { EvalStatus } from '@/types/index';
 import { EvalButton } from '../common/EvalButton';
 import { EvalResultDisplay } from '../common/EvalResultDisplay';
@@ -10,16 +9,12 @@ interface EvalTabProps {
   evalState: EvalStatus;
   onStartEvaluation: () => void;
   hasEvaluated: boolean;
-  lastEvalParams: SavedParamsSnapshot | null;
-  isEvalButtonDisabled: boolean;
 }
 
 export const EvalTab: React.FC<EvalTabProps> = ({
   evalState,
   onStartEvaluation,
   hasEvaluated,
-  lastEvalParams,
-  isEvalButtonDisabled
 }) => {
 
   // has not evaluated yet
@@ -29,16 +24,11 @@ export const EvalTab: React.FC<EvalTabProps> = ({
 
   // Loading
   if (evalState === 'loading') {
-    return <LoadingDisplay icon={<Activity size={48} />} content='正在评估模型表现...' />;
+    return <LoadingDisplay icon={<Activity size={48} />} content='正在进行评测，请耐心等待...' />;
   }
 
   // already evaluated
   return (
-    <EvalResultDisplay
-      lastEvalParams={lastEvalParams}
-      isEvalButtonDisabled={isEvalButtonDisabled}
-      hasEvaluated={hasEvaluated}
-      onStartEvaluation={onStartEvaluation}
-    />
+    <EvalResultDisplay />
   );
 };

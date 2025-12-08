@@ -59,43 +59,33 @@ export type EvalStatus = 'idle' | 'loading' | 'done';
 
 export type RagasMetricKey =
   | 'faithfulness'
-  | 'answer_relevance'
+  | 'answer_relevancy'
   | 'context_recall'
   | 'context_precision';
 
 export interface RagasMetrics {
   faithfulness?: number;
-  answer_relevance?: number;
+  answer_relevancy?: number;
   context_recall?: number;
   context_precision?: number;
 }
 
 export interface EvalSample {
-  id: string | number;
-  query: string;
-  answer: string;
-  reference_answer?: string;
-  contexts: string[];
-  metrics: RagasMetrics;
+  question: string
+  answer: string
+  reference?: string
+  metrics: RagasMetrics
+  contexts: string[]
 }
 
-export interface EvalResult {
-  total_samples: number;
-  metrics: RagasMetrics;
-  samples: EvalSample[];
-}
-
-export interface EvalSample {
-  id: string | number;
-  query: string;
-  answer: string;
-  reference_answer?: string;
-  contexts: string[];
-  metrics: RagasMetrics;
-}
-
-export interface EvalResult {
-  total_samples: number;
-  metrics: RagasMetrics;
-  samples: EvalSample[];
+export interface RagEvalResult {
+  total_count: number
+  averages: {
+    faithfulness?: number
+    answer_relevancy?: number
+    context_recall?: number
+    context_precision?: number
+  }
+  results_file?: string
+  samples: EvalSample[]
 }
