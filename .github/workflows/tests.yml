@@ -2,9 +2,9 @@ name: Offline Unit Tests
 
 on:
   push:
-    branches: [ main, dev, develop ]
+    branches: [ main, dev, master, develop ]
   pull_request:
-    branches: [ main, dev, develop ]
+    branches: [ main, dev, master, develop ]
 
 jobs:
   offline-tests:
