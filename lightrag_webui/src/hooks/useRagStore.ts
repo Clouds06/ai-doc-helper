@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { DEFAULT_SYSTEM_PROMPT } from '@/lib/constants';
-import type { RagEvalResult } from '@/api/lightrag';
+import type { RagEvalResult } from '@/types';
 
 export interface RagEvalState {
   evalResult: RagEvalResult | null;      // 当前评测结果
@@ -93,3 +93,8 @@ export const useRagStore = create<RagStore>()(
     },
   ),
 );
+
+if (typeof window !== 'undefined') {
+  // @ts-ignore
+  window.__ragStore = useRagStore;
+}

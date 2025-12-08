@@ -65,7 +65,7 @@ def main():
     主函数
     """
     # 默认文件路径
-    default_file = "/Users/wangzihao/Documents/Obsidian Vault/数据库系统/规范化.md"
+    default_file = "/Users/wangzihao/PycharmProjects/new/lightrag/evaluation/sample_documents/01_lightrag_overview.md"
 
     # 从命令行参数获取文件路径（如果提供）
     file_path = sys.argv[1] if len(sys.argv) > 1 else default_file

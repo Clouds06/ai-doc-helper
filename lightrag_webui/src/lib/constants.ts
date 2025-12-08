@@ -25,7 +25,7 @@ export const DEFAULT_SYSTEM_PROMPT =
 // RAG评测指标元信息
 export const METRIC_ORDER: RagasMetricKey[] = [
   'faithfulness',
-  'answer_relevance',
+  'answer_relevancy',
   'context_recall',
   'context_precision',
 ];
@@ -47,7 +47,7 @@ export const METRIC_META: Record<
     color: 'text-blue-600',
     bgColor: 'bg-blue-50',
   },
-  answer_relevance: {
+  answer_relevancy: {
     label: '相关性',
     desc: '衡量回答是否真正回应了用户问题，是否语义匹配、不跑题。',
     icon: BookOpenCheck,

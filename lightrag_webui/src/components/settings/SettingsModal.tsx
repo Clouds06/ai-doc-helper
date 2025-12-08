@@ -5,8 +5,8 @@ import { useRagStore } from '../../hooks/useRagStore';
 import { DEFAULT_SYSTEM_PROMPT } from '@/lib/constants';
 import { CardHeader } from '../common/CardHeader';
 import { CardTabs } from '../common/CardTabs';
-import { CardTab } from '@/types';
-import { RagEvalResult, runRagEvaluation, saveRagParams } from '@/api/lightrag';
+import { CardTab, RagEvalResult,  } from '@/types';
+import { runRagEvaluation } from '@/api/lightrag';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -57,7 +57,7 @@ export const SettingsModal = ({ isOpen, onClose, showToast }: SettingsModalProps
   const [savedParams, setSavedParams] =
     useState<SavedParamsSnapshot>(initialSaved);
 
-  const [lastEvalParams, setLastEvalParams] =
+  const [lastEvalParams] =
     useState<SavedParamsSnapshot | null>(null);
 
   const [evalState, setEvalState] =
@@ -66,10 +66,6 @@ export const SettingsModal = ({ isOpen, onClose, showToast }: SettingsModalProps
   const [, setEvalError] = useState<string | null>(null);
 
   const hasEvaluated = lastEvalParams !== null;
-  const isParamsChanged = hasEvaluated
-    ? JSON.stringify(savedParams) !== JSON.stringify(lastEvalParams)
-    : true;
-  const isEvalButtonDisabled = hasEvaluated && !isParamsChanged;
 
   const handleSaveConfig = async (next: SavedParamsSnapshot) => {
     setSavedParams(next);
@@ -79,14 +75,8 @@ export const SettingsModal = ({ isOpen, onClose, showToast }: SettingsModalProps
     setSystemPrompt(next.systemPrompt);
 
     try {
-      await saveRagParams({
-        temperature: next.temperature,
-        chunk_top_k: next.chunkTopK,
-        systemPrompt: next.systemPrompt,
-      });
-
       if (typeof window !== 'undefined') {
-        showToast('配置已保存！现在可以前往评测面板进行新一轮测试。', 'success');
+        showToast('配置已保存！', 'success');
       }
     } catch (err) {
       console.error('[saveRagParams] failed', err);
@@ -107,15 +97,8 @@ export const SettingsModal = ({ isOpen, onClose, showToast }: SettingsModalProps
         setPrevEvalResult(evalResult);
       }
 
-      const result: RagEvalResult = await runRagEvaluation({
-        temperature: savedParams.temperature,
-        chunk_top_k: savedParams.chunkTopK,
-        systemPrompt: savedParams.systemPrompt,
-      });
-
+      const result: RagEvalResult = await runRagEvaluation();
       setEvalResult(result);
-
-      setLastEvalParams(savedParams);
 
       setEvalState('done');
     } catch (err) {
@@ -161,8 +144,6 @@ export const SettingsModal = ({ isOpen, onClose, showToast }: SettingsModalProps
                 evalState={evalState}
                 onStartEvaluation={startEvaluation}
                 hasEvaluated={hasEvaluated}
-                lastEvalParams={lastEvalParams}
-                isEvalButtonDisabled={isEvalButtonDisabled}
               />
             )}
           </div>
