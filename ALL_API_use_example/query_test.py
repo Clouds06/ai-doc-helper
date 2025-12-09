@@ -39,7 +39,7 @@ def main():
     print("=== 测试非流式查询 ===")
     # 非流式查询示例
     data = {
-        "query": "rag 是啥",
+        "query": "how does LightRAG solve the hallucination problem in large language models",
         "mode": "mix",  # 查询模式
         "include_references": True,  # 是否包含引用源
         "include_chunk_content": False,  # 是否包含具体内容
