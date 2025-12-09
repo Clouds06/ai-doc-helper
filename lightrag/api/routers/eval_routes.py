@@ -13,18 +13,35 @@ from fastapi.responses import JSONResponse, FileResponse, Response
 from lightrag.api.utils_api import get_combined_auth_dependency
 
 # 添加eval_accuracy_citation目录到Python路径
-# 优先尝试相对路径
-eval_dir = Path(__file__).parent.parent.parent.parent / "eval_accuracy_citation"
-if not eval_dir.exists():
-    # 尝试绝对路径
-    eval_dir = Path("/Users/wangzihao/PycharmProjects/new/eval_accuracy_citation")
+# 使用相对路径确保可迁移性
+current_file = Path(__file__)
+# 向上移动到项目根目录
+project_root = current_file.parent.parent.parent.parent
+eval_dir = project_root / "eval_accuracy_citation"
 
 if eval_dir.exists():
     sys.path.insert(0, str(eval_dir))
     # 导入评测管道
     from rag_eval_pipeline import run_eval_pipeline
 else:
-    raise ImportError(f"无法找到eval_accuracy_citation目录: {eval_dir}")
+    # 尝试其他可能的相对路径结构
+    alternative_paths = [
+        current_file.parent.parent.parent / "eval_accuracy_citation",
+        current_file.parent.parent / "eval_accuracy_citation",
+        current_file.parent / "eval_accuracy_citation"
+    ]
+    
+    found = False
+    for alt_path in alternative_paths:
+        if alt_path.exists():
+            eval_dir = alt_path
+            sys.path.insert(0, str(eval_dir))
+            from rag_eval_pipeline import run_eval_pipeline
+            found = True
+            break
+    
+    if not found:
+        raise ImportError(f"无法找到eval_accuracy_citation目录: {eval_dir}\n尝试的替代路径: {alternative_paths}")
 
 
 router = APIRouter(tags=["evaluation"])
