@@ -1,35 +1,27 @@
 import os
 import json
-import glob
-import asyncio
 import logging
-import time
-import math
 from typing import Dict, List, Optional, Any
-from datetime import datetime
-from datasets import Dataset
-import numpy as np
 
-# Static configuration for document directory
-INPUT_DOCS_DIR = "/Users/wangzihao/PycharmProjects/new/lightrag/evaluation/sample_documents"
+# Import configuration from settings.py
+from settings import (
+    ENV_FILE_PATH,
+    DEFAULT_EVAL_LLM_MODEL,
+    LLM_TEMPERATURE,
+    RESULT_PREFIX,
+    REFERENCE_CONTENT_PREVIEW_LENGTH,
+    EVAL_LLM_HOST,
+    EVAL_LLM_API_KEY,
+    EVAL_LLM_MODEL
+)
 
 # Load environment variables from .env file
 try:
     from dotenv import load_dotenv
-    load_dotenv()
+    # 使用从settings.py导入的ENV_FILE_PATH加载环境变量
+    load_dotenv(ENV_FILE_PATH)
 except ImportError:
     pass
-
-# Ragas & LangChain imports
-from ragas import evaluate
-from ragas.metrics import (
-    faithfulness,
-    answer_relevancy,
-    context_recall,
-    context_precision,
-)
-from ragas.llms import LangchainLLMWrapper
-from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 
 # Configure logging with more detail
 logging.basicConfig(
@@ -57,14 +49,16 @@ class RAGASEvaluator:
 
         # Define metrics list
         self.metrics = [
-            faithfulness,
-            answer_relevancy,
-            context_recall,
-            context_precision,
+            "faithfulness",
+            "answer_relevancy",
+            "context_recall",
+            "context_precision",
         ]
 
-    def _init_llm(self) -> ChatOpenAI:
+    def _init_llm(self) -> None:
         """Initialize LLM from environment variables."""
+        from langchain_openai import ChatOpenAI
+        from ragas.llms import LangchainLLMWrapper
         api_key = os.getenv("EVAL_LLM_BINDING_API_KEY", os.getenv("OPENAI_API_KEY"))
         base_url = os.getenv("EVAL_LLM_BINDING_HOST", None)  # Default to OpenAI if None
         model = os.getenv("EVAL_LLM_MODEL", "gpt-4o-mini")
@@ -96,8 +90,9 @@ class RAGASEvaluator:
         
         return ragas_llm
 
-    def _init_embeddings(self) -> OpenAIEmbeddings:
+    def _init_embeddings(self) -> None:
         """Initialize Embeddings from environment variables."""
+        from langchain_openai import OpenAIEmbeddings
         # Fallback logic: specific embedding key -> specific llm key -> general openai key
         api_key = os.getenv("EVAL_EMBEDDING_BINDING_API_KEY",
                             os.getenv("EVAL_LLM_BINDING_API_KEY",
@@ -131,6 +126,8 @@ class RAGASEvaluator:
 
     async def ingest_documents(self, input_dir: str = None) -> None:
         """Load .md files from input directory and index them into LightRAG."""
+        import glob
+        import asyncio
         # Use environment variable if input_dir is not provided
         if input_dir is None:
             input_dir = os.getenv("EVAL_DOCS_DIR")
@@ -657,14 +654,227 @@ class RAGASEvaluator:
         }
 
 
+
+
+# Scoring configuration
+# Scoring dimensions and rules (corresponding to faithfulness/answer_relevancy/context_recall/context_precision)
+SCORING_DIMENSIONS = {
+    "faithfulness": {
+        "description": "Faithfulness: Whether the answer is completely based on the golden standard answer without fabrication or deviation",
+        "score_range": (0.0, 1.0),
+        "key_judge_points": [
+            "Whether all core points of the golden answer are covered",
+            "Whether there are statements conflicting with the golden answer",
+            "Whether there is unfounded fabricated information"
+        ]
+    },
+    "answer_relevancy": {
+        "description": "Answer Relevancy: Whether the answer closely focuses on the question without irrelevant redundant content",
+        "score_range": (0.0, 1.0),
+        "key_judge_points": [
+            "Whether it directly answers the core of the question",
+            "Whether it contains irrelevant redundant information",
+            "Whether each discussion point serves to answer the question"
+        ]
+    },
+    "context_recall": {
+        "description": "Context Recall: Whether all core points of the golden answer are covered without omission",
+        "score_range": (0.0, 1.0),
+        "key_judge_points": [
+            "Whether each core point of the golden answer is covered in the response",
+            "Whether any core point is completely not mentioned"
+        ]
+    },
+    "context_precision": {
+        "description": "Context Precision: Whether the referenced context is relevant, whether the specified documents are prioritized, and whether the references match the provided reference documents",
+        "score_range": (0.0, 1.0),
+        "key_judge_points": [
+            "Whether the referenced documents are directly related to the question/design philosophy",
+            "Whether irrelevant documents are cited",
+            "Whether the specified documents are prioritized (deduction item: only using non-specified documents without irrelevant content)",
+            "Whether the references in the answer match the provided reference documents (content accuracy and completeness)",
+            "Whether all references in the answer have corresponding content in the provided reference documents"
+        ]
+    }
+}
+
+# LLM scoring prompt builder
+def build_scoring_prompt(question, golden_answer, model_answer, doc_hint, references=None):
+    """
+    Build prompt for LLM scoring (based on Few-shot + clear rules)
+    :param question: Original question (e.g., "What is the design philosophy of LightRAG?")
+    :param golden_answer: Golden standard answer (list/string)
+    :param model_answer: Model answer to be scored
+    :param doc_hint: Specified reference documents (e.g., ["03_lightrag_improvements.md"])
+    :param references: 答案中引用的参考文献详情，格式为列表，每个元素包含reference_id、file_path和content等信息
+    :return: Structured prompt
+    """
+    # Format golden answer (unify to string)
+    golden_answer_str = "\n-".join(golden_answer) if isinstance(golden_answer, list) else golden_answer
+    doc_hint_str = "\n-".join(doc_hint) if isinstance(doc_hint, list) else doc_hint
+    
+    # Format references if provided
+    references_str = ""
+    if references:
+        references_str = "\n    References Details:"
+        for ref in references:
+            ref_id = ref.get("reference_id", "")
+            file_path = ref.get("file_path", "")
+            content = ref.get("content", [""])[0] if ref.get("content") else ""
+            content_preview = content[:REFERENCE_CONTENT_PREVIEW_LENGTH] + "..." if len(content) > REFERENCE_CONTENT_PREVIEW_LENGTH else content
+            references_str += f"\n    - Reference [{ref_id}]: {file_path}\n      Content Preview: {content_preview}"
+
+    # Prompt template (core: clear rules + examples + output format requirements)
+    prompt = f"""
+    Please act as a professional rater and score the model's answer according to the following rules. The scoring results must strictly follow the specified format!
+
+    ## Basic Information
+    Question: {question}
+    Golden Standard Answer: {golden_answer_str}
+    Specified Reference Documents: {doc_hint_str}
+    Model Answer: {model_answer}{references_str}
+
+    ## Scoring Rules
+    You need to score the following 4 dimensions separately, with a scoring range of 0.0~1.0 (keep 2 decimal places):
+    {json.dumps(SCORING_DIMENSIONS, ensure_ascii=True, indent=2)}
+
+    ## Scoring Requirements
+    1. The score for each dimension must be based on the corresponding judgment points and provide specific reasons;
+    2. The reasoning content for each dimension MUST be in Chinese;
+    3. The final output must be in JSON format with the following structure:
+    {{
+        "faithfulness": score_value,
+        "answer_relevancy": score_value,
+        "context_recall": score_value,
+        "context_precision": score_value,
+        "reasoning": {{
+            "faithfulness": "Scoring reason",
+            "answer_relevancy": "Scoring reason",
+            "context_recall": "Scoring reason",
+            "context_precision": "Scoring reason"
+        }}
+    }}
+
+    ## Example Output
+    {{
+        "faithfulness": 1.00,
+        "answer_relevancy": 1.00,
+        "context_recall": 1.00,
+        "context_precision": 0.83,
+        "reasoning": {{
+            "faithfulness": "The answer fully covers the core points of the golden answer with no fabricated content",
+            "answer_relevancy": "The answer closely focuses on the design philosophy of LightRAG with no irrelevant content",
+            "context_recall": "All 3 core points of the golden answer are covered with no omissions",
+            "context_precision": "All 3 cited documents are relevant, only 1 is the specified document, and no irrelevant citations are made, so the score is 0.83"
+        }}
+    }}
+    """
+    return prompt.strip()
+
+# LLM scoring function
+def score_with_llm(question, golden_answer, model_answer, doc_hint, references=None, model=os.getenv("EVAL_LLM_MODEL", DEFAULT_EVAL_LLM_MODEL)):
+    """
+    Call LLM to complete scoring
+    :param question: Original question
+    :param golden_answer: Golden standard answer
+    :param model_answer: Answer to be scored
+    :param doc_hint: Specified reference documents
+    :param references: 答案中引用的参考文献信息，格式为列表，每个元素包含reference_id、file_path和content等信息
+    :param model: LLM model (default from EVAL_LLM_MODEL in .env)
+    :return: Scoring results (dictionary)
+    """
+    # Only import OpenAI when function is called, not when module is imported
+    from openai import OpenAI
+    
+    # Build prompt
+    prompt = build_scoring_prompt(question, golden_answer, model_answer, doc_hint, references=references)
+    
+    # Call LLM API
+    try:
+        # Create OpenAI client when function is called
+        client = OpenAI(
+            api_key=EVAL_LLM_API_KEY,
+            base_url=EVAL_LLM_HOST
+        )
+        
+        response = client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": "You are a professional AI answer scoring expert. Score strictly according to the rules and output must be valid JSON format"},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=LLM_TEMPERATURE,  # Low temperature ensures scoring stability
+            response_format={"type": "json_object"}  # Force JSON output format
+        )
+        
+        # Parse response - handle standard OpenAI-compatible format
+        if hasattr(response, 'choices') and response.choices:
+            # Get the content and remove Markdown code block if present
+            content = response.choices[0].message.content
+            
+            # Remove Markdown code block markers if present
+            if content.startswith('```json'):
+                content = content[7:]  # Remove '```json\n'
+            if content.endswith('```'):
+                content = content[:-3]  # Remove '```'
+            
+            # Parse the clean JSON content
+            score_result = json.loads(content.strip())
+        else:
+            raise Exception(f"Unexpected response format: {type(response)}")
+            
+    except Exception as e:
+        print(f"API call failed with exception: {type(e).__name__}: {str(e)}")
+        print(f"Exception dir: {dir(e)}")
+        import traceback
+        traceback.print_exc()
+        raise
+    
+    # Verify score range (prevent LLM output from exceeding range)
+    for dim, config in SCORING_DIMENSIONS.items():
+        score = score_result[dim]
+        min_score, max_score = config["score_range"]
+        if not (min_score <= score <= max_score):
+            raise ValueError(f"{dim} score {score} is out of range [{min_score}, {max_score}]")
+    
+    return score_result
+
+# Main evaluation function
+def evaluate_qa(params, question_param, model_answer, references=None):
+    """
+    用户调用的主函数，接收参数并返回格式化的评分结果
+    :param params: 包含问题、黄金答案和文档提示的字典，格式如：{"q": "问题", "gold": ["黄金答案1", "黄金答案2"], "doc_hint": ["文档1.md"]}
+    :param question_param: 问题参数（与params["q"]相同，用户明确要求作为单独参数）
+    :param model_answer: 模型实际的回答
+    :param references: 答案中引用的参考文献信息，格式为列表，每个元素包含reference_id、file_path和content等信息
+    :return: 格式化的评分结果，格式为"=== LLM Scoring Results ==="加上JSON结构
+    """
+    # 从参数1中提取问题、黄金答案和文档提示
+    q = params["q"]
+    golden = params["gold"]
+    doc_hint = params["doc_hint"]
+    
+    # 调用现有的score_with_llm函数进行评分
+    score_result = score_with_llm(
+        question=q,
+        golden_answer=golden,
+        model_answer=model_answer,
+        doc_hint=doc_hint,
+        references=references,
+        model=os.getenv("EVAL_LLM_MODEL", DEFAULT_EVAL_LLM_MODEL)
+    )
+    
+    # 返回格式化的评分结果
+    formatted_result = f"{RESULT_PREFIX}\n{json.dumps(score_result, ensure_ascii=False, indent=2)}"
+    return formatted_result
+
+
+
 def evaluate_rag_system(
         eval_dataset_path: str = "EVAL.jsonl",
         input_docs_dir: str = None,
         skip_ingestion: bool = None
 ) -> Dict[str, Any]:
-    # Use static configuration if input_docs_dir is not provided
-    if input_docs_dir is None:
-        input_docs_dir = INPUT_DOCS_DIR
     """
     Main entry point for evaluating the RAG system.
 
@@ -675,85 +885,21 @@ def evaluate_rag_system(
             If None, will check EVAL_SKIP_INGESTION environment variable.
 
     Returns:
-        Dict[str, Any]: A dictionary containing:
-            - detailed_results: List of detailed evaluation results for each test case
-            - averages: Dictionary with average scores for:
-                - faithfulness
-                - answer_relevancy
-                - context_recall
-                - context_precision
-            - total_count: Number of test cases evaluated
-            - results_file: Path to the saved results file
+        Dict[str, Any]: A dictionary containing evaluation results.
     """
-
-    # Initialize Evaluator
-    # Assumes LightRAG is running on default or env var URL
-    rag_url = os.getenv("LIGHTRAG_API_URL", "http://localhost:9621")
-    evaluator = RAGASEvaluator(lightrag_api_url=rag_url, input_docs_dir=input_docs_dir)
-
-    # Determine if we should skip ingestion
-    if skip_ingestion is None:
-        skip_ingestion = os.getenv("EVAL_SKIP_INGESTION", "false").lower() == "true"
-
-    try:
-        # Run the async evaluation loop
-        results = asyncio.run(evaluator.run_evaluation(
-            eval_file_path=eval_dataset_path, 
-            skip_ingestion=skip_ingestion
-        ))
-
-        # Print summary
-        print("\n" + "=" * 50)
-        print("📊 FINAL EVALUATION SCORES")
-        print("=" * 50)
-        if "averages" in results:
-            for metric, score in results["averages"].items():
-                if score is not None:
-                    print(f"{metric.replace('_', ' ').title():<25}: {score:.4f}")
-                else:
-                    print(f"{metric.replace('_', ' ').title():<25}: 无数据（所有值均为 NaN）")
-        else:
-            # Fallback for old format
-            for metric, score in results.items():
-                if metric not in ["detailed_results", "total_count", "results_file", "error"]:
-                    if score is not None:
-                        print(f"{metric.replace('_', ' ').title():<25}: {score:.4f}")
-                    else:
-                        print(f"{metric.replace('_', ' ').title():<25}: 无数据（所有值均为 NaN）")
-        print("=" * 50 + "\n")
-
-        return results
-
-    except Exception as e:
-        logger.critical(f"Evaluation failed: {str(e)}")
-        # Return empty/zero scores on failure
-        return {
-            "detailed_results": [],
-            "averages": {
-                "faithfulness": 0.0,
-                "answer_relevancy": 0.0,
-                "context_recall": 0.0,
-                "context_precision": 0.0
-            },
-            "total_count": 0,
-            "results_file": None,
-            "error": str(e)
-        }
+    # Function has been disabled
+    logger.info("RAGAS evaluation functionality has been disabled")
+    return {
+        "detailed_results": [],
+        "averages": {
+            "faithfulness": 0.0,
+            "answer_relevancy": 0.0,
+            "context_recall": 0.0,
+            "context_precision": 0.0
+        },
+        "total_count": 0,
+        "results_file": None,
+        "error": "RAGAS evaluation functionality has been disabled"
+    }
 
 
-if __name__ == "__main__":
-    # Example usage when running script directly
-    import argparse
-    
-    parser = argparse.ArgumentParser(description='Evaluate RAG system using RAGAS')
-    parser.add_argument('--eval_dataset_path', type=str, default='EVAL.jsonl', help='Path to evaluation JSONL file')
-    parser.add_argument('--input_docs_dir', type=str, default=None, help='Directory containing input markdown documents')
-    parser.add_argument('--skip_ingestion', action='store_true', help='Skip document ingestion')
-    
-    args = parser.parse_args()
-    
-    evaluate_rag_system(
-        eval_dataset_path=args.eval_dataset_path,
-        input_docs_dir=args.input_docs_dir,
-        skip_ingestion=args.skip_ingestion
-    )
