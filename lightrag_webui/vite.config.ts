@@ -4,22 +4,9 @@ import react from '@vitejs/plugin-react-swc'
 import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig(({ mode }) => {
-  // 加载环境变量
   const env = loadEnv(mode, process.cwd(), '')
 
-  // 智能计算 Base Path
-  // 优先级：
-  // A. GitHub Actions 注入的 VITE_BASE_URL (对应 GitHub Pages)
-  // B. Vercel 注入的 VERCEL_URL (对应 Vercel，强制设为根路径 '/')
-  // C. 默认回退 (对应本地开发，保持你原本的 '/webui/')
-  let basePath = process.env.VITE_BASE_URL; // GitHub Actions
-
-  if (!basePath && process.env.VERCEL) {
-    basePath = '/'; // Vercel 部署通常在根目录
-  }
-
-  // 如果都不是，回退到默认值
-  basePath = basePath || '/webui/';
+  const target = env.VITE_BACKEND_URL || 'http://localhost:9621'
 
   return {
     plugins: [react(), tailwindcss()],
@@ -28,7 +15,7 @@ export default defineConfig(({ mode }) => {
         '@': path.resolve(__dirname, './src')
       }
     },
-    base: basePath,
+    base: '/', // 开发环境使用根路径
     build: {
       outDir: path.resolve(__dirname, '../lightrag/api/webui'),
       emptyOutDir: true,
@@ -42,25 +29,55 @@ export default defineConfig(({ mode }) => {
       }
     },
     server: {
-      // 3. 修复 proxy 中的环境变量读取
-      proxy: env.VITE_API_PROXY === 'true' && env.VITE_API_ENDPOINTS ?
-        Object.fromEntries(
-          env.VITE_API_ENDPOINTS.split(',').map(endpoint => [
-            endpoint,
-            {
-              target: env.VITE_BACKEND_URL || 'http://localhost:9621',
-              changeOrigin: true,
-              rewrite: endpoint === '/api' ?
-                (path) => path.replace(/^\/api/, '') :
-                endpoint === '/docs' || endpoint === '/redoc' || endpoint === '/openapi.json' || endpoint === '/static' ?
-                  (path) => path : undefined
+      proxy: {
+        // 通用代理规则 - 匹配所有API路径
+        '^/(api|documents|graphs|graph|health|query|docs|redoc|openapi.json|login|auth-status|static)': {
+          target,
+          changeOrigin: true,
+          secure: false,
+          // 添加详细日志
+          configure: (proxy, options) => {
+            proxy.on('proxyReq', (proxyReq, req, res) => {
+              console.log(`📤 [Vite代理] ${req.method} ${req.url} -> ${target}${req.url}`)
+            })
+            proxy.on('proxyRes', (proxyRes, req, res) => {
+              console.log(`📥 [Vite代理响应] ${req.method} ${req.url} -> ${proxyRes.statusCode}`)
+            })
+            proxy.on('error', (err, req, res) => {
+              console.error(`❌ [Vite代理错误] ${req.method} ${req.url}:`, err.message)
+            })
+          }
+        },
+
+        // 专门为/query/stream添加配置（确保流式响应正常工作）
+        '/query/stream': {
+          target,
+          changeOrigin: true,
+          secure: false,
+          // 流式端点需要特殊配置
+          proxyTimeout: 0,
+          timeout: 0,
+          ws: false, // 明确关闭WebSocket
+          // 确保响应头正确
+          onProxyRes: (proxyRes, req, res) => {
+            // 确保content-type正确
+            if (!proxyRes.headers['content-type']) {
+              proxyRes.headers['content-type'] = 'application/x-ndjson'
             }
-          ])
-        ) : {},
-      watch: {
-        usePolling: true,
-        interval: 100,
+          }
+        },
       },
+      host: 'localhost',
+      port: 5173,
+      strictPort: true,
+      cors: true,
+      open: false,
+      // 添加CORS配置
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, PATCH, OPTIONS',
+        'Access-Control-Allow-Headers': 'X-Requested-With, Content-Type, Authorization, X-API-Key'
+      }
     },
   }
 })
