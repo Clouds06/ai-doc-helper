@@ -42,6 +42,7 @@ jobs:
         # Run only tests marked as 'offline' (no external dependencies)
         # Integration tests requiring databases/APIs are skipped by default
         pytest tests/ -m offline -v --tb=short
+          --junitxml=test-results.xml
 
     - name: Upload test results
       if: always()
