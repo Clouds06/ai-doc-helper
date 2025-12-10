@@ -18,16 +18,18 @@ import {
   FileText,
   Zap,
   Quote,
-  AlertCircle
+  AlertCircle,
+  MessageSquare
 } from 'lucide-react'
 import { ChatMessage, Citation, ConversationSession } from '../types'
 import { useRagStore } from '../hooks/useRagStore'
-import { queryStream } from '../api/chat'
+import { queryStream, submitFeedback } from '../api/chat'
 import { APIMessage } from '../api/chat'
 
 // 本地存储的键名
 const STORAGE_KEY = 'chat_sessions'
 const ACTIVE_SESSION_KEY = 'active_session_id'
+const FEEDBACK_STORAGE_KEY = 'chat_feedback'
 
 // 时间分组函数
 const groupSessionsByTime = (sessions: ConversationSession[]) => {
@@ -105,6 +107,7 @@ const deleteSessionFromStorage = (sessionId: string) => {
 const clearAllSessions = () => {
   localStorage.removeItem(STORAGE_KEY)
   localStorage.removeItem(ACTIVE_SESSION_KEY)
+  localStorage.removeItem(FEEDBACK_STORAGE_KEY)
   return []
 }
 
@@ -139,14 +142,16 @@ const sanitizeQuery = (query: string): string => {
   return sanitized.trim()
 }
 
-// 转换引用格式
+// 转换引用格式 - 更新以支持scores
 const transformReferences = (refs: any[]): Citation[] => {
   return refs.map((ref, index) => ({
     id: ref.reference_id || `ref-${index}`,
     docName: ref.file_path?.split('/').pop() || ref.file_path || `文档${index + 1}`,
-    content: ref.content || ref.snippet || '相关文档内容',
+    content: ref.content?.[0] || ref.snippet || '相关文档内容',
     page: ref.page || ref.page_number || 1,
-    score: ref.score || ref.relevance || 0.8 + Math.random() * 0.15
+    score: ref.score || (ref.scores?.[0] || 0.8 + Math.random() * 0.15),
+    scores: ref.scores || [],
+    contentList: ref.content || []
   }))
 }
 
@@ -202,20 +207,18 @@ const simulateStreaming = (
   fullText: string,
   onChunk: (chunk: string) => void,
   onComplete: () => void,
-  speed: number = 30 // 每30毫秒输出一个字符
+  speed: number = 30
 ) => {
   let index = 0
   const textLength = fullText.length
 
   const streamNext = () => {
     if (index < textLength) {
-      // 每次输出1-3个字符，模拟真实流式
       const chunkSize = Math.min(1 + Math.floor(Math.random() * 3), textLength - index)
       const chunk = fullText.substring(index, index + chunkSize)
       onChunk(chunk)
       index += chunkSize
 
-      // 随机延迟，使输出更自然
       const delay = speed + Math.random() * 20
       setTimeout(streamNext, delay)
     } else {
@@ -248,8 +251,11 @@ export const ChatView = ({ initialQuery }: { initialQuery?: string }) => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null)
   const [connectionError, setConnectionError] = useState<string | null>(null)
   const [showInputError, setShowInputError] = useState<string | null>(null)
+  const [showFeedbackModal, setShowFeedbackModal] = useState<string | null>(null)
+  const [feedbackComment, setFeedbackComment] = useState<string>('')
+  const [pendingFeedback, setPendingFeedback] = useState<{ msgId: string, type: 'like' | 'dislike' } | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
-  const pendingQueryProcessedRef = useRef(false) // 用于跟踪pendingQuery是否已处理
+  const pendingQueryProcessedRef = useRef(false)
   const inputErrorTimerRef = useRef<NodeJS.Timeout | null>(null)
 
   // 清理计时器
@@ -265,12 +271,10 @@ export const ChatView = ({ initialQuery }: { initialQuery?: string }) => {
   const showInputErrorAlert = (message: string) => {
     setShowInputError(message)
 
-    // 清除之前的计时器
     if (inputErrorTimerRef.current) {
       clearTimeout(inputErrorTimerRef.current)
     }
 
-    // 3秒后自动隐藏
     inputErrorTimerRef.current = setTimeout(() => {
       setShowInputError(null)
     }, 3000)
@@ -335,7 +339,6 @@ export const ChatView = ({ initialQuery }: { initialQuery?: string }) => {
       localStorage.setItem(ACTIVE_SESSION_KEY, newSessionId)
     }
 
-    // 直接发送查询，不通过handleSendFromPendingQuery函数
     setTimeout(() => {
       handleSendDirect(sanitizedQuery, sessionToUse!)
       setPendingQuery(null)
@@ -367,7 +370,6 @@ export const ChatView = ({ initialQuery }: { initialQuery?: string }) => {
       }
       setMessages([welcomeMessage])
     } else if (messages.length === 0 && initialQuery) {
-      // 检查初始查询的长度
       if (initialQuery.trim().length >= 3) {
         handleSend()
       }
@@ -413,12 +415,10 @@ export const ChatView = ({ initialQuery }: { initialQuery?: string }) => {
     setInput('')
     setIsTyping(true)
 
-    // 调用API
     sendQueryToAPI(queryText, newMessages)
   }
 
   const handleSend = () => {
-    // 输入验证
     const trimmedInput = input.trim()
 
     if (!trimmedInput) {
@@ -448,7 +448,6 @@ export const ChatView = ({ initialQuery }: { initialQuery?: string }) => {
     setInput('')
     setIsTyping(true)
 
-    // 如果没有活动会话，创建一个新会话
     if (!activeSessionId) {
       const newSessionId = Date.now().toString()
       const newSession: ConversationSession = {
@@ -464,17 +463,15 @@ export const ChatView = ({ initialQuery }: { initialQuery?: string }) => {
       localStorage.setItem(ACTIVE_SESSION_KEY, newSessionId)
     }
 
-    // 调用API
     sendQueryToAPI(trimmedInput, newMessages)
   }
 
-  // 发送查询到API的函数 - 使用真实的流式API
+  // 发送查询
   const sendQueryToAPI = async (queryText: string, currentMessages: ChatMessage[]) => {
-    if (isTyping) return // 防止重复调用
+    if (isTyping) return
 
     const aiMsgId = (Date.now() + 1).toString()
 
-    // 创建初始的AI消息，设置为流式状态
     const aiMsg: ChatMessage = {
       id: aiMsgId,
       role: 'assistant',
@@ -488,9 +485,8 @@ export const ChatView = ({ initialQuery }: { initialQuery?: string }) => {
     setConnectionError(null)
 
     try {
-      // 转换消息格式为API需要的格式
       const conversationHistory: APIMessage[] = currentMessages
-        .slice(0, -1) // 排除最后一条用户消息，因为要发送它
+        .slice(0, -1)
         .map(msg => ({
           role: msg.role as 'user' | 'assistant' | 'system',
           content: msg.content
@@ -500,134 +496,150 @@ export const ChatView = ({ initialQuery }: { initialQuery?: string }) => {
         query: queryText,
         historyLength: conversationHistory.length,
         systemPrompt,
-        chunk_top_k
+        chunk_top_k,
+        temperature
       })
 
       let fullResponse = ''
       let references: any[] = []
-      let isErrorResponse = false
-      let errorType = ''
+      let queryId: string | null = null
+      let hasReceivedData = false
+      let isNoContextError = false // 新增：标记是否是无上下文错误
 
       // 使用流式API
       await queryStream(
         queryText,
         conversationHistory,
-        // 处理数据块
+        // 处理数据块 - 修复：立即检测并替换错误消息
         (chunk: string) => {
-          console.log('收到API数据块:', chunk.substring(0, 50) + '...')
+          console.log('收到API数据块:', chunk.substring(0, 100) + '...')
+          hasReceivedData = true
 
-          // 检查是否是错误响应
-          if (chunk.toLowerCase().includes('no relevant context')) {
-            isErrorResponse = true
-            errorType = 'no_context'
-          } else if (chunk.toLowerCase().includes('query text must be at least')) {
-            isErrorResponse = true
-            errorType = 'short_query'
-          } else if (
-            chunk.toLowerCase().includes('network') ||
-            chunk.toLowerCase().includes('fetch') ||
-            chunk.toLowerCase().includes('timeout') ||
-            chunk.toLowerCase().includes('authentication') ||
-            chunk.toLowerCase().includes('internal server')
-          ) {
-            isErrorResponse = true
-            errorType = 'general_error'
+          // 检查是否包含"no relevant context"错误
+          const chunkLower = chunk.toLowerCase()
+          if (chunkLower.includes('no relevant context')) {
+            console.log('检测到无相关上下文错误，替换为友好消息')
+            isNoContextError = true
+
+            // 清空之前接收的内容
+            fullResponse = ''
+
+            // 友好的错误消息
+            const friendlyResponse = '抱歉，我没有在知识库中找到与这个问题相关的内容。\n\n这可能是因为：\n1. 知识库中还没有上传相关文档\n2. 您的查询超出了现有文档的范围\n3. 您可以尝试更具体的问题或上传相关文档'
+
+            // 如果是错误响应，开始流式输出友好消息
+            if (!fullResponse.includes('抱歉')) {
+              // 使用流式输出友好错误消息
+              simulateStreaming(
+                friendlyResponse,
+                (friendlyChunk: string) => {
+                  fullResponse += friendlyChunk
+                  setMessages(prev =>
+                    prev.map((msg) => {
+                      if (msg.id === aiMsgId) {
+                        return { ...msg, content: fullResponse }
+                      }
+                      return msg
+                    })
+                  )
+                },
+                () => {
+                  // 完成时设置最终消息
+                  const finalAiMsg: ChatMessage = {
+                    id: aiMsgId,
+                    role: 'assistant',
+                    content: fullResponse,
+                    timestamp: new Date(),
+                    queryId: queryId || undefined,
+                    isStreaming: false
+                  }
+
+                  setMessages(prev =>
+                    prev.map((msg) => (msg.id === aiMsgId ? finalAiMsg : msg))
+                  )
+                  setIsTyping(false)
+                },
+                30
+              )
+            }
+            return // 跳过原始错误内容的处理
           }
 
-          fullResponse += chunk
+          // 尝试提取query_id
+          try {
+            if (chunk.includes('query_id')) {
+              const match = chunk.match(/"query_id"\s*:\s*"([^"]+)"/)
+              if (match && match[1] && !queryId) {
+                queryId = match[1]
+                console.log('提取到query_id:', queryId)
+
+                setMessages(prev =>
+                  prev.map((msg) => {
+                    if (msg.id === aiMsgId) {
+                      return { ...msg, queryId: match[1] }
+                    }
+                    return msg
+                  })
+                )
+              }
+            }
+          } catch (parseError) {
+            console.log('解析query_id失败:', parseError)
+          }
+
+          // 只有不是错误响应才累加原始内容
+          if (!isNoContextError) {
+            fullResponse += chunk
+
+            // 实时更新消息内容
+            setMessages(prev =>
+              prev.map((msg) => {
+                if (msg.id === aiMsgId) {
+                  return { ...msg, content: fullResponse }
+                }
+                return msg
+              })
+            )
+          }
         },
-        // 完成回调
+        // 完成回调 - 修复：处理非错误响应的完成
         (completeResponse: string, refs?: any) => {
           console.log('API响应完成')
-          console.log('完整响应:', completeResponse.substring(0, 100) + '...')
+          console.log('完整响应:', completeResponse.substring(0, 200) + '...')
+          console.log('query_id:', queryId)
           console.log('引用数据:', refs)
+          console.log('是否为无上下文错误:', isNoContextError)
 
           references = refs || []
 
-          // 如果是错误响应，准备友好的错误消息
-          let responseToShow = completeResponse
-          if (isErrorResponse) {
-            responseToShow = getFriendlyErrorMessage(completeResponse)
+          // 如果已经是错误响应并正在流式输出友好消息，不处理这里
+          if (isNoContextError) {
+            console.log('已经是无上下文错误响应，跳过完成回调')
+            return
           }
 
-          // 检查是否是无相关内容的响应
-          if (errorType === 'no_context') {
-            // 对于无相关内容的错误，使用流式输出
-            simulateStreaming(
-              responseToShow,
-              // 处理每个数据块
-              (chunk: string) => {
-                setMessages(prev =>
-                  prev.map((msg) => {
-                    if (msg.id === aiMsgId) {
-                      const currentContent = msg.content || ''
-                      return { ...msg, content: currentContent + chunk }
-                    }
-                    return msg
-                  })
-                )
-              },
-              // 完成回调
-              () => {
-                const finalAiMsg: ChatMessage = {
-                  id: aiMsgId,
-                  role: 'assistant',
-                  content: responseToShow,
-                  timestamp: new Date()
-                }
+          // 再次检查是否是错误响应
+          const responseLower = completeResponse.toLowerCase()
+          const isNoContext = responseLower.includes('no relevant context') ||
+            responseLower.includes('no relevant context found')
 
-                setMessages(prev =>
-                  prev.map((msg) => (msg.id === aiMsgId ? finalAiMsg : msg))
-                )
-                setIsTyping(false)
-              },
-              30
-            )
-          } else if (isErrorResponse) {
-            // 对于其他错误，也使用流式输出
-            simulateStreaming(
-              responseToShow,
-              // 处理每个数据块
-              (chunk: string) => {
-                setMessages(prev =>
-                  prev.map((msg) => {
-                    if (msg.id === aiMsgId) {
-                      const currentContent = msg.content || ''
-                      return { ...msg, content: currentContent + chunk }
-                    }
-                    return msg
-                  })
-                )
-              },
-              // 完成回调
-              () => {
-                const finalAiMsg: ChatMessage = {
-                  id: aiMsgId,
-                  role: 'assistant',
-                  content: responseToShow,
-                  timestamp: new Date()
-                }
+          if (isNoContext) {
+            console.log('完成回调中检测到无相关上下文，显示流式错误消息')
+            isNoContextError = true
 
-                setMessages(prev =>
-                  prev.map((msg) => (msg.id === aiMsgId ? finalAiMsg : msg))
-                )
-                setIsTyping(false)
-              },
-              30
-            )
-          } else if (completeResponse.toLowerCase().includes('no relevant context found')) {
-            // 转换为友好的无内容响应
             const friendlyResponse = '抱歉，我没有在知识库中找到与这个问题相关的内容。\n\n这可能是因为：\n1. 知识库中还没有上传相关文档\n2. 您的查询超出了现有文档的范围\n3. 您可以尝试更具体的问题或上传相关文档'
 
-            // 使用流式输出
+            // 清空之前的内容，开始流式输出友好错误消息
+            fullResponse = ''
+
             simulateStreaming(
               friendlyResponse,
               (chunk: string) => {
+                fullResponse += chunk
                 setMessages(prev =>
                   prev.map((msg) => {
                     if (msg.id === aiMsgId) {
-                      const currentContent = msg.content || ''
-                      return { ...msg, content: currentContent + chunk }
+                      return { ...msg, content: fullResponse }
                     }
                     return msg
                   })
@@ -637,8 +649,10 @@ export const ChatView = ({ initialQuery }: { initialQuery?: string }) => {
                 const finalAiMsg: ChatMessage = {
                   id: aiMsgId,
                   role: 'assistant',
-                  content: friendlyResponse,
-                  timestamp: new Date()
+                  content: fullResponse,
+                  timestamp: new Date(),
+                  queryId: queryId || undefined,
+                  isStreaming: false
                 }
 
                 setMessages(prev =>
@@ -648,66 +662,49 @@ export const ChatView = ({ initialQuery }: { initialQuery?: string }) => {
               },
               30
             )
-          } else {
-            // 正常响应，有引用的情况
-            simulateStreaming(
-              completeResponse,
-              // 处理每个数据块
-              (chunk: string) => {
-                setMessages(prev =>
-                  prev.map((msg) => {
-                    if (msg.id === aiMsgId) {
-                      const currentContent = msg.content || ''
-                      return { ...msg, content: currentContent + chunk }
-                    }
-                    return msg
-                  })
-                )
-              },
-              // 完成回调
-              () => {
-                // 流式输出完成后，处理引用
-                if (references && references.length > 0) {
-                  console.log('收到引用:', references)
+            return
+          }
 
-                  // 转换引用格式为前端需要的Citation格式
-                  const citations = transformReferences(references)
+          // 处理正常响应
+          if (references && references.length > 0) {
+            console.log('收到引用，处理正常响应')
 
-                  // 提取高亮文本
-                  const highlightText = extractHighlightText(completeResponse)
+            const citations = transformReferences(references)
+            const highlightText = extractHighlightText(completeResponse)
 
-                  const finalAiMsg: ChatMessage = {
-                    id: aiMsgId,
-                    role: 'assistant',
-                    content: completeResponse,
-                    timestamp: new Date(),
-                    highlightInfo: {
-                      text: highlightText,
-                      citations: citations
-                    }
-                  }
+            const finalAiMsg: ChatMessage = {
+              id: aiMsgId,
+              role: 'assistant',
+              content: completeResponse,
+              timestamp: new Date(),
+              queryId: queryId || undefined,
+              isStreaming: false,
+              highlightInfo: {
+                text: highlightText,
+                citations: citations
+              }
+            }
 
-                  setMessages(prev =>
-                    prev.map((msg) => (msg.id === aiMsgId ? finalAiMsg : msg))
-                  )
-                } else {
-                  // 正常响应，没有引用
-                  const finalAiMsg: ChatMessage = {
-                    id: aiMsgId,
-                    role: 'assistant',
-                    content: completeResponse,
-                    timestamp: new Date()
-                  }
-
-                  setMessages(prev =>
-                    prev.map((msg) => (msg.id === aiMsgId ? finalAiMsg : msg))
-                  )
-                }
-
-                setIsTyping(false)
-              },
-              30 // 每30毫秒输出一个字符
+            setMessages(prev =>
+              prev.map((msg) => (msg.id === aiMsgId ? finalAiMsg : msg))
             )
+            setIsTyping(false)
+          } else {
+            console.log('普通响应，直接显示')
+            // 普通响应，直接显示
+            const finalAiMsg: ChatMessage = {
+              id: aiMsgId,
+              role: 'assistant',
+              content: completeResponse,
+              timestamp: new Date(),
+              queryId: queryId || undefined,
+              isStreaming: false
+            }
+
+            setMessages(prev =>
+              prev.map((msg) => (msg.id === aiMsgId ? finalAiMsg : msg))
+            )
+            setIsTyping(false)
           }
         },
         // 错误回调
@@ -715,10 +712,8 @@ export const ChatView = ({ initialQuery }: { initialQuery?: string }) => {
           console.error('API调用失败:', error)
           setConnectionError(error.message)
 
-          // 转换为友好的错误消息
           const friendlyError = getFriendlyErrorMessage(error.message)
 
-          // 对错误消息也使用流式输出
           simulateStreaming(
             friendlyError,
             (chunk: string) => {
@@ -737,7 +732,9 @@ export const ChatView = ({ initialQuery }: { initialQuery?: string }) => {
                 id: aiMsgId,
                 role: 'assistant',
                 content: friendlyError,
-                timestamp: new Date()
+                timestamp: new Date(),
+                queryId: queryId || undefined,
+                isStreaming: false
               }
 
               setMessages(prev =>
@@ -747,7 +744,10 @@ export const ChatView = ({ initialQuery }: { initialQuery?: string }) => {
             },
             30
           )
-        }
+        },
+        systemPrompt,
+        chunk_top_k,
+        temperature
       )
 
     } catch (error) {
@@ -755,10 +755,8 @@ export const ChatView = ({ initialQuery }: { initialQuery?: string }) => {
       const errorMessage = error instanceof Error ? error.message : '未知错误'
       setConnectionError(errorMessage)
 
-      // 转换为友好的错误消息
       const friendlyError = getFriendlyErrorMessage(errorMessage)
 
-      // 对错误消息也使用流式输出
       simulateStreaming(
         friendlyError,
         (chunk: string) => {
@@ -777,7 +775,8 @@ export const ChatView = ({ initialQuery }: { initialQuery?: string }) => {
             id: aiMsgId,
             role: 'assistant',
             content: friendlyError,
-            timestamp: new Date()
+            timestamp: new Date(),
+            isStreaming: false
           }
 
           setMessages(prev =>
@@ -789,6 +788,7 @@ export const ChatView = ({ initialQuery }: { initialQuery?: string }) => {
       )
     }
   }
+
   const handleNewConversation = () => {
     if (activeSessionId && messages.length > 1) {
       const session = sessions.find(s => s.id === activeSessionId)
@@ -802,7 +802,6 @@ export const ChatView = ({ initialQuery }: { initialQuery?: string }) => {
       }
     }
 
-    // 重置pendingQuery处理标志
     pendingQueryProcessedRef.current = false
 
     setMessages([
@@ -852,13 +851,113 @@ export const ChatView = ({ initialQuery }: { initialQuery?: string }) => {
     handleNewConversation()
   }
 
-  const toggleFeedback = (msgId: string, type: 'like' | 'dislike') => {
+  const toggleFeedback = (msgId: string, type: 'like' | 'dislike', e?: React.MouseEvent) => {
+    if (e) {
+      e.stopPropagation()
+      e.preventDefault()
+    }
+
+    console.log('点击反馈按钮:', { msgId, type })
+
+    const message = messages.find(msg => msg.id === msgId)
+    if (!message) {
+      console.error('未找到消息:', msgId)
+      return
+    }
+
+    console.log('找到消息:', {
+      messageId: message.id,
+      hasQueryId: !!message.queryId,
+      queryId: message.queryId,
+      currentFeedback: message.feedback
+    })
+
+    // 如果有queryId，弹出反馈模态框
+    if (message.queryId) {
+      console.log('有queryId，弹出模态框')
+      setPendingFeedback({ msgId, type })
+      setShowFeedbackModal(msgId)
+    } else {
+      console.log('没有queryId，只更新UI')
+      // 如果没有queryId，只更新UI
+      setMessages((prev) =>
+        prev.map((msg) => {
+          if (msg.id !== msgId) return msg
+          const newFeedback = msg.feedback === type ? null : type
+          console.log('更新UI反馈:', newFeedback)
+          return { ...msg, feedback: newFeedback }
+        })
+      )
+    }
+  }
+
+  const handleSubmitFeedback = async (msgId: string, type: 'like' | 'dislike', comment: string) => {
+    const message = messages.find(msg => msg.id === msgId)
+    if (!message || !message.queryId) {
+      showInputErrorAlert('无法提交反馈：缺少查询ID')
+      return
+    }
+
+    // 先更新UI状态为提交中
     setMessages((prev) =>
       prev.map((msg) => {
         if (msg.id !== msgId) return msg
-        return { ...msg, feedback: msg.feedback === type ? null : type }
+        return {
+          ...msg,
+          isSubmittingFeedback: true
+        }
       })
     )
+
+    try {
+      // 找到对应的用户消息
+      const userMessage = messages.find(msg =>
+        msg.role === 'user' &&
+        messages.indexOf(msg) < messages.indexOf(message)
+      )
+
+      await submitFeedback(
+        message.queryId!,
+        type,
+        comment,
+        userMessage?.content,
+        message.content
+      )
+
+      // 提交成功后更新UI
+      setMessages((prev) =>
+        prev.map((msg) => {
+          if (msg.id !== msgId) return msg
+          return {
+            ...msg,
+            feedback: type,
+            feedbackComment: comment,
+            isSubmittingFeedback: false
+          }
+        })
+      )
+
+      setShowFeedbackModal(null)
+      setFeedbackComment('')
+      setPendingFeedback(null)
+
+      // 显示成功提示
+      showInputErrorAlert(`反馈提交成功！${type === 'like' ? '👍' : '👎'}`)
+    } catch (error) {
+      console.error('反馈提交失败:', error)
+      showInputErrorAlert('反馈提交失败，请稍后重试')
+
+      // 提交失败，恢复UI状态
+      setMessages((prev) =>
+        prev.map((msg) => {
+          if (msg.id !== msgId) return msg
+          return {
+            ...msg,
+            isSubmittingFeedback: false
+          }
+        })
+      )
+    }
   }
 
   const handleHighlightClick = (citations: Citation[]) => {
@@ -937,6 +1036,49 @@ export const ChatView = ({ initialQuery }: { initialQuery?: string }) => {
             >
               <X className="h-4 w-4" />
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* 反馈模态框 */}
+      {showFeedbackModal && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-2xl">
+            <div className="mb-4 flex items-center gap-2">
+              <MessageSquare className="h-5 w-5 text-blue-600" />
+              <h3 className="text-lg font-semibold text-gray-900">提供反馈</h3>
+            </div>
+            <p className="mb-4 text-sm text-gray-600">
+              请告诉我们为什么给出这个评价？您的反馈将帮助AI改进回答质量。
+            </p>
+            <textarea
+              value={feedbackComment}
+              onChange={(e) => setFeedbackComment(e.target.value)}
+              placeholder="例如：回答太啰嗦了、格式不对、信息不准确等..."
+              className="mb-4 h-24 w-full rounded-lg border border-gray-300 p-3 text-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-50"
+              autoFocus
+            />
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => {
+                  setShowFeedbackModal(null)
+                  setFeedbackComment('')
+                  setPendingFeedback(null)
+                }}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                取消
+              </button>
+              <button
+                onClick={() => {
+                  const type = pendingFeedback?.type || 'like'
+                  handleSubmitFeedback(showFeedbackModal, type, feedbackComment)
+                }}
+                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+              >
+                提交反馈
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -1179,17 +1321,51 @@ export const ChatView = ({ initialQuery }: { initialQuery?: string }) => {
                   {msg.role === 'assistant' && !msg.isStreaming && (
                     <div className="flex items-center gap-2 px-1">
                       <button
-                        onClick={() => toggleFeedback(msg.id, 'like')}
-                        className={`rounded p-1 transition-colors hover:bg-gray-100 ${msg.feedback === 'like' ? 'text-green-500' : 'text-gray-400'}`}
+                        onClick={(e) => {
+                          console.log('点赞按钮被点击:', msg.id, Date.now())
+                          toggleFeedback(msg.id, 'like', e)
+                        }}
+                        className={`rounded p-1 transition-colors hover:bg-gray-100 ${msg.feedback === 'like'
+                          ? 'text-green-500'
+                          : 'text-gray-400'
+                          } ${msg.isSubmittingFeedback ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        title={msg.isSubmittingFeedback ? '正在提交反馈...' : '点赞'}
+                        disabled={msg.isSubmittingFeedback}
                       >
-                        <ThumbsUp className="h-3.5 w-3.5" />
+                        {msg.isSubmittingFeedback && msg.feedback === 'like' ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <ThumbsUp className="h-3.5 w-3.5" />
+                        )}
                       </button>
                       <button
-                        onClick={() => toggleFeedback(msg.id, 'dislike')}
-                        className={`rounded p-1 transition-colors hover:bg-gray-100 ${msg.feedback === 'dislike' ? 'text-red-500' : 'text-gray-400'}`}
+                        onClick={(e) => {
+                          console.log('点踩按钮被点击:', msg.id, Date.now())
+                          toggleFeedback(msg.id, 'dislike', e)
+                        }}
+                        className={`rounded p-1 transition-colors hover:bg-gray-100 ${msg.feedback === 'dislike'
+                          ? 'text-red-500'
+                          : 'text-gray-400'
+                          } ${msg.isSubmittingFeedback ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        title={msg.isSubmittingFeedback ? '正在提交反馈...' : '点踩'}
+                        disabled={msg.isSubmittingFeedback}
                       >
-                        <ThumbsDown className="h-3.5 w-3.5" />
+                        {msg.isSubmittingFeedback && msg.feedback === 'dislike' ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <ThumbsDown className="h-3.5 w-3.5" />
+                        )}
                       </button>
+                      {msg.queryId && (
+                        <span className="text-[10px] text-gray-400" title="可提交反馈">
+                          ID: {msg.queryId.substring(0, 8)}...
+                        </span>
+                      )}
+                      {msg.isSubmittingFeedback && (
+                        <span className="text-[10px] text-gray-400 animate-pulse">
+                          提交中...
+                        </span>
+                      )}
                       {msg.highlightInfo && msg.highlightInfo.citations && msg.highlightInfo.citations.length > 0 && (
                         <button
                           onClick={() => handleCitationsButtonClick(msg.highlightInfo!.citations)}
@@ -1312,7 +1488,7 @@ export const ChatView = ({ initialQuery }: { initialQuery?: string }) => {
                 </div>
                 <div className="flex items-center gap-1 rounded border border-green-100 bg-green-50 px-1.5 py-0.5 text-[10px] font-medium text-green-700">
                   <Zap className="h-3 w-3" />
-                  {Math.round(cite.score * 100)}%
+                  {Math.round((cite.score || 0) * 100)}%
                 </div>
               </div>
               <div className="relative">
@@ -1321,6 +1497,28 @@ export const ChatView = ({ initialQuery }: { initialQuery?: string }) => {
                   {cite.content || '相关文档内容'}
                 </p>
               </div>
+              {/* 显示多个得分 */}
+              {cite.scores && cite.scores.length > 0 && (
+                <div className="mt-2 space-y-1">
+                  <div className="text-[10px] font-medium text-gray-500">相关度得分：</div>
+                  {cite.scores.map((score, idx) => (
+                    <div key={idx} className="flex items-center justify-between">
+                      <span className="text-[10px] text-gray-400">片段 {idx + 1}</span>
+                      <div className="flex items-center gap-1">
+                        <div className="h-1.5 w-16 rounded-full bg-gray-200">
+                          <div
+                            className="h-1.5 rounded-full bg-green-500"
+                            style={{ width: `${score * 100}%` }}
+                          />
+                        </div>
+                        <span className="text-[10px] font-medium text-green-600">
+                          {Math.round(score * 100)}%
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
               {cite.page && (
                 <div className="mt-2 flex justify-end">
                   <span className="rounded bg-gray-50 px-1.5 py-0.5 text-[10px] text-gray-400">

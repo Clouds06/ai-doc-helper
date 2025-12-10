@@ -28,10 +28,11 @@ export interface DocFile {
 export interface Citation {
   id: string;
   docName: string;
-  docType: 'pdf' | 'doc' | 'sheet' | 'md';
-  score: number;
   content: string;
   page?: number;
+  score?: number; // 新增：相似度得分
+  scores?: number[]; // 新增：多个片段的得分
+  contentList?: string[]; // 新增：多个片段内容
 }
 
 export interface ChatMessage {
@@ -39,12 +40,15 @@ export interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
   timestamp: Date;
+  queryId?: string;
   isStreaming?: boolean;
+  feedback?: 'like' | 'dislike' | null;
+  feedbackComment?: string;
+  isSubmittingFeedback?: boolean;
   highlightInfo?: {
     text: string;
     citations: Citation[];
   };
-  feedback?: 'like' | 'dislike' | null;
 }
 
 export interface ChatSession {
