@@ -35,16 +35,19 @@ export interface Citation {
 }
 
 export interface ChatMessage {
-  id: string
-  role: 'user' | 'assistant'
-  content: string
-  timestamp: Date
-  isStreaming?: boolean
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: Date;
+  queryId?: string;
+  isStreaming?: boolean;
+  feedback?: 'like' | 'dislike' | null;
+  feedbackComment?: string;
+  isSubmittingFeedback?: boolean;
   highlightInfo?: {
     text: string
     citations: Citation[]
   }
-  feedback?: 'like' | 'dislike' | null
 }
 
 export interface ChatSession {
@@ -89,5 +92,12 @@ export interface RagEvalResult {
   }
   results_file?: string
   samples: EvalSample[]
+}
+
+export interface ConversationSession {
+  id: string;
+  title: string;
+  messages: ChatMessage[];
+  lastUpdated: string;
 }
 
