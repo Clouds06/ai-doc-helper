@@ -142,18 +142,57 @@ const sanitizeQuery = (query: string): string => {
   return sanitized.trim()
 }
 
-// 转换引用格式 - 更新以支持scores
+// 转换引用格式 
 const transformReferences = (refs: any[]): Citation[] => {
-  return refs.map((ref, index) => ({
-    id: ref.reference_id || `ref-${index}`,
-    docName: ref.file_path?.split('/').pop() || ref.file_path || `文档${index + 1}`,
-    content: ref.content?.[0] || ref.snippet || '相关文档内容',
-    page: ref.page || ref.page_number || 1,
-    score: ref.score || (ref.scores?.[0] || 0.8 + Math.random() * 0.15),
-    scores: ref.scores || [],
-    contentList: ref.content || []
-  }))
-}
+  return refs.map((ref, index) => {
+    // 处理 scores 字段：确保它是一个数组
+    let scoresArray: number[] = [];
+
+    if (Array.isArray(ref.scores)) {
+      // 如果 scores 是数组，直接使用
+      scoresArray = ref.scores;
+    } else if (typeof ref.scores === 'number') {
+      // 如果 scores 是单个数字，转换为数组
+      scoresArray = [ref.scores];
+    } else if (ref.scores && typeof ref.scores === 'object') {
+      // 如果 scores 是对象，尝试提取数值
+      try {
+        scoresArray = Object.values(ref.scores).filter(v => typeof v === 'number') as number[];
+      } catch (e) {
+        console.warn('无法解析 scores 对象:', ref.scores);
+      }
+    }
+
+    // 如果没有 scores，使用默认值或从 score 字段派生
+    if (scoresArray.length === 0) {
+      if (typeof ref.score === 'number') {
+        scoresArray = [ref.score];
+      } else {
+        // 生成一些随机分数作为回退（仅用于演示）
+        scoresArray = [0.8 + Math.random() * 0.15];
+      }
+    }
+
+    // 确保所有分数都在 0-1 范围内
+    scoresArray = scoresArray.map(score => Math.max(0, Math.min(1, score)));
+
+    // 计算主分数（使用第一个分数或平均值）
+    const mainScore = scoresArray.length > 0 ? scoresArray[0] : (ref.score || 0.8 + Math.random() * 0.15);
+
+    return {
+      id: ref.reference_id || ref.id || `ref-${Date.now()}-${index}`,
+      docName: ref.file_path?.split('/').pop() || ref.file_path || ref.docName || ref.file_name || `文档${index + 1}`,
+      content: ref.content?.[0] || ref.snippet || ref.content || ref.text || '相关文档内容',
+      page: ref.page || ref.page_number || ref.page_no || 1,
+      score: mainScore,
+      scores: scoresArray,
+      contentList: Array.isArray(ref.content) ? ref.content :
+        (ref.snippet ? [ref.snippet] :
+          (ref.text ? [ref.text] : ['相关文档内容'])),
+      docType: ref.docType ?? 'unknown'
+    };
+  });
+};
 
 // 提取高亮文本
 const extractHighlightText = (response: string): string => {

@@ -48,7 +48,6 @@ export interface ChatMessage {
     text: string
     citations: Citation[]
   }
-  feedback?: 'like' | 'dislike' | null
 }
 
 export interface ChatSession {
@@ -93,5 +92,12 @@ export interface RagEvalResult {
   }
   results_file?: string
   samples: EvalSample[]
+}
+
+export interface ConversationSession {
+  id: string;
+  title: string;
+  messages: ChatMessage[];
+  lastUpdated: string;
 }
 
