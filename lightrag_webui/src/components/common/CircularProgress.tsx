@@ -1,20 +1,16 @@
-
 interface CircularProgressProps {
-  value: number,
+  value: number
   color: string
 }
 
-export const CircularProgress = ({
-  value,
-  color,
-}: CircularProgressProps) => {
-  const radius = 26;
-  const circumference = 2 * Math.PI * radius;
-  const offset = circumference - (value / 100) * circumference;
-  const center = 28;
+export const CircularProgress = ({ value, color }: CircularProgressProps) => {
+  const radius = 26
+  const circumference = 2 * Math.PI * radius
+  const offset = circumference - (value / 100) * circumference
+  const center = 28
 
   return (
-    <svg className="w-14 h-14">
+    <svg className="h-14 w-14">
       <circle
         className="text-gray-100"
         strokeWidth="4"
@@ -26,7 +22,7 @@ export const CircularProgress = ({
         transform={`rotate(-90 ${center} ${center})`}
       />
       <circle
-        className={color}
+        className={`text-${color}-500`}
         strokeWidth="4"
         stroke="currentColor"
         fill="transparent"
@@ -43,11 +39,12 @@ export const CircularProgress = ({
         y={center}
         textAnchor="middle"
         dominantBaseline="middle"
-        className="text-gray-900 font-bold text-lg"
+        className={`text-${color}-700 text-lg font-bold`}
       >
         {value}
-        <tspan className="text-sm font-normal text-gray-400 ml-0.5">%</tspan>
+        <tspan className="ml-0.5 text-sm font-normal text-gray-300">%</tspan>
       </text>
     </svg>
-  );
-};
+  )
+}
+

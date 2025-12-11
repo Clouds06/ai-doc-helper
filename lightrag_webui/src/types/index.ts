@@ -1,38 +1,37 @@
-import React from 'react';
+import React from 'react'
 
-export type Tab = 'home' | 'documents' | 'chat';
+export type Tab = 'home' | 'documents' | 'chat'
 export type CardTab = {
-  id: string;
-  label: string;
-};
+  id: string
+  label: string
+}
 
 export interface Scenario {
-  id: number;
-  icon: React.ReactNode;
-  title: string;
-  query: string;
-  desc: string;
-  theme: 'yellow' | 'purple' | 'blue' | 'green' | 'red' | 'indigo';
+  id: number
+  icon: React.ReactNode
+  title: string
+  query: string
+  desc: string
+  theme: 'yellow' | 'purple' | 'blue' | 'green' | 'red' | 'indigo'
 }
 
 export interface DocFile {
-  id: string;
-  name: string;
-  size: string;
-  type: 'pdf' | 'doc' | 'sheet' | 'md';
-  date: string;
-  status: 'ready' | 'indexing' | 'error';
-  tags: string[];
+  id: string
+  name: string
+  size: string
+  type: 'pdf' | 'doc' | 'sheet' | 'md'
+  date: string
+  status: 'ready' | 'indexing' | 'error'
+  tags: string[]
 }
 
 export interface Citation {
-  id: string;
-  docName: string;
-  content: string;
-  page?: number;
-  score?: number; // 新增：相似度得分
-  scores?: number[]; // 新增：多个片段的得分
-  contentList?: string[]; // 新增：多个片段内容
+  id: string
+  docName: string
+  docType: 'pdf' | 'doc' | 'sheet' | 'md'
+  score: number
+  content: string
+  page?: number
 }
 
 export interface ChatMessage {
@@ -46,32 +45,33 @@ export interface ChatMessage {
   feedbackComment?: string;
   isSubmittingFeedback?: boolean;
   highlightInfo?: {
-    text: string;
-    citations: Citation[];
-  };
+    text: string
+    citations: Citation[]
+  }
+  feedback?: 'like' | 'dislike' | null
 }
 
 export interface ChatSession {
-  id: string;
-  title: string;
-  preview: string;
-  date: string;
+  id: string
+  title: string
+  preview: string
+  date: string
 }
 
 // Evaluation
-export type EvalStatus = 'idle' | 'loading' | 'done';
+export type EvalStatus = 'idle' | 'loading' | 'done'
 
 export type RagasMetricKey =
   | 'faithfulness'
   | 'answer_relevancy'
   | 'context_recall'
-  | 'context_precision';
+  | 'context_precision'
 
 export interface RagasMetrics {
-  faithfulness?: number;
-  answer_relevancy?: number;
-  context_recall?: number;
-  context_precision?: number;
+  faithfulness?: number
+  answer_relevancy?: number
+  context_recall?: number
+  context_precision?: number
 }
 
 export interface EvalSample {
@@ -80,6 +80,7 @@ export interface EvalSample {
   reference?: string
   metrics: RagasMetrics
   contexts: string[]
+  retrieved_context: string[]
 }
 
 export interface RagEvalResult {
@@ -93,3 +94,4 @@ export interface RagEvalResult {
   results_file?: string
   samples: EvalSample[]
 }
+
