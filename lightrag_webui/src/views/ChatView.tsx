@@ -159,7 +159,7 @@ const transformReferences = (refs: any[]): Citation[] => {
       // 如果 scores 是对象，尝试提取数值
       try {
         scoresArray = Object.values(ref.scores).filter(v => typeof v === 'number') as number[];
-      } catch (e) {
+      } catch (_) {  // eslint-disable-line @typescript-eslint/no-unused-vars
         console.warn('无法解析 scores 对象:', ref.scores);
       }
     }
@@ -270,7 +270,7 @@ const simulateStreaming = (
 }
 
 const staticMarkdownComponents = {
-  a: ({ node, href, children, ...props }: any) => (
+  a: ({ href, children, ...props }: any) => (
     <a
       href={href}
       target="_blank"
@@ -281,7 +281,7 @@ const staticMarkdownComponents = {
       {children}
     </a>
   ),
-  code: ({ node, className, children, ...props }: any) => {
+  code: ({ className, children, ...props }: any) => {
     const match = /language-(\w+)/.exec(className || '')
     const isBlock = !!match || String(children).includes('\n')
     return isBlock ? (
@@ -294,42 +294,42 @@ const staticMarkdownComponents = {
       </code>
     )
   },
-  hr: ({ node, ...props }: any) => (
+  hr: ({ ...props }: any) => (
     <hr className="my-4 border-gray-200 dark:border-gray-700" {...props} />
   ),
-  ul: ({ node, children, ...props }: any) => (
+  ul: ({ children, ...props }: any) => (
     <ul className="list-disc pl-5 my-3 space-y-2" {...props}>
       {children}
     </ul>
   ),
-  ol: ({ node, children, ...props }: any) => (
+  ol: ({ children, ...props }: any) => (
     <ol className="list-decimal pl-5 my-3 space-y-2" {...props}>
       {children}
     </ol>
   ),
-  li: ({ node, children, ...props }: any) => (
+  li: ({ children, ...props }: any) => (
     <li className="pl-1 leading-relaxed" {...props}>
       {children}
     </li>
   ),
-  table: ({ node, children, ...props }: any) => (
+  table: ({ children, ...props }: any) => (
     <div className="my-4 w-full overflow-x-auto rounded-lg border border-gray-200">
       <table className="w-full table-auto text-sm text-left" {...props}>
         {children}
       </table>
     </div>
   ),
-  thead: ({ node, children, ...props }: any) => (
+  thead: ({ children, ...props }: any) => (
     <thead className="bg-gray-50 text-gray-700 font-medium" {...props}>
       {children}
     </thead>
   ),
-  th: ({ node, children, ...props }: any) => (
+  th: ({ children, ...props }: any) => (
     <th className="px-4 py-3 border-b border-gray-200 font-semibold" {...props}>
       {children}
     </th>
   ),
-  td: ({ node, children, ...props }: any) => (
+  td: ({ children, ...props }: any) => (
     <td className="px-4 py-3 border-b border-gray-100" {...props}>
       {children}
     </td>
@@ -381,7 +381,7 @@ const MessageContent = memo(({
   // 缓存组件配置
   const components = useMemo(() => ({
     ...staticMarkdownComponents,
-    span: ({ node, className, children, ...props }: any) => {
+    span: ({ className, children, ...props }: any) => {
       if (className?.includes('citation-highlight') && highlightInfo) {
         return (
           <span
@@ -410,6 +410,7 @@ const MessageContent = memo(({
     </div>
   )
 })
+MessageContent.displayName = 'MessageContent'
 
 export const ChatView = ({ initialQuery }: { initialQuery?: string }) => {
   const {
@@ -531,7 +532,7 @@ export const ChatView = ({ initialQuery }: { initialQuery?: string }) => {
     }
 
     setTimeout(() => {
-      handleSendDirect(sanitizedQuery, sessionToUse!)
+      handleSendDirect(sanitizedQuery)
       setPendingQuery(null)
     }, 100)
 
@@ -591,7 +592,7 @@ export const ChatView = ({ initialQuery }: { initialQuery?: string }) => {
   }, [messages, isTyping])
 
   // 直接发送查询（用于pendingQuery）
-  const handleSendDirect = (queryText: string, sessionId: string) => {
+  const handleSendDirect = (queryText: string) => {
     if (!queryText.trim() || isTyping) return
 
     const userMsg: ChatMessage = {
@@ -688,7 +689,6 @@ export const ChatView = ({ initialQuery }: { initialQuery?: string }) => {
       let fullResponse = ''
       let references: any[] = []
       let queryId: string | null = null
-      let hasReceivedData = false
       let isNoContextError = false // 新增：标记是否是无上下文错误
 
       // 使用流式API
@@ -697,7 +697,6 @@ export const ChatView = ({ initialQuery }: { initialQuery?: string }) => {
         conversationHistory,
         // 处理数据块 - 修复：立即检测并替换错误消息
         (chunk: string) => {
-          hasReceivedData = true
 
           // 检查是否包含"no relevant context"错误
           const chunkLower = chunk.toLowerCase()
@@ -1547,7 +1546,7 @@ export const ChatView = ({ initialQuery }: { initialQuery?: string }) => {
                     className={`rounded-2xl p-3.5 shadow-sm ${msg.role === 'user'
                       ? 'rounded-br-none bg-blue-600 text-white text-sm leading-relaxed'
                       : 'rounded-tl-none border border-gray-100 bg-white text-gray-700'
-                      }`}
+                    }`}
                   >
                     {msg.role === 'user' ? (
                       <div className="whitespace-pre-wrap">{msg.content}</div>
@@ -1569,7 +1568,7 @@ export const ChatView = ({ initialQuery }: { initialQuery?: string }) => {
                         className={`rounded p-1 transition-colors hover:bg-gray-100 ${msg.feedback === 'like'
                           ? 'text-green-500'
                           : 'text-gray-400'
-                          } ${msg.isSubmittingFeedback ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        } ${msg.isSubmittingFeedback ? 'opacity-50 cursor-not-allowed' : ''}`}
                         title={msg.isSubmittingFeedback ? '正在提交反馈...' : '点赞'}
                         disabled={msg.isSubmittingFeedback}
                       >
@@ -1586,7 +1585,7 @@ export const ChatView = ({ initialQuery }: { initialQuery?: string }) => {
                         className={`rounded p-1 transition-colors hover:bg-gray-100 ${msg.feedback === 'dislike'
                           ? 'text-red-500'
                           : 'text-gray-400'
-                          } ${msg.isSubmittingFeedback ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        } ${msg.isSubmittingFeedback ? 'opacity-50 cursor-not-allowed' : ''}`}
                         title={msg.isSubmittingFeedback ? '正在提交反馈...' : '点踩'}
                         disabled={msg.isSubmittingFeedback}
                       >
@@ -1664,9 +1663,9 @@ export const ChatView = ({ initialQuery }: { initialQuery?: string }) => {
               onClick={handleSend}
               disabled={!input.trim() || input.trim().length < 3 || isTyping}
               className={`absolute bottom-4 right-4 flex h-9 w-9 items-center justify-center rounded-full transition-all duration-200 ${input.trim().length >= 3 && !isTyping
-                  ? 'bg-blue-600 text-white shadow-md hover:bg-blue-700 hover:shadow-lg hover:-translate-y-0.5'
-                  : 'bg-transparent text-gray-300 cursor-not-allowed hover:bg-gray-100'
-                }`}
+                ? 'bg-blue-600 text-white shadow-md hover:bg-blue-700 hover:shadow-lg hover:-translate-y-0.5'
+                : 'bg-transparent text-gray-300 cursor-not-allowed hover:bg-gray-100'
+              }`}
               title={input.trim().length < 3 ? '请输入至少3个字符' : isTyping ? 'AI正在思考中' : '发送消息'}
             >
               {isTyping ? (

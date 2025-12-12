@@ -8,7 +8,6 @@ import {
   DocumentsRequest,
   PaginatedDocsResponse,
   DeleteDocResponse,
-  DocStatusResponse
 } from '../types'
 
 // Types

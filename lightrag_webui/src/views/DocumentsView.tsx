@@ -23,10 +23,6 @@ import { toast } from 'sonner'
 import { errorMessage } from '@/lib/utils'
 import { useUploadStore } from '../hooks/useUploadStore'
 
-interface DocumentsViewProps {
-  onUpload?: () => void
-}
-
 // 工具函数：格式化文件大小
 const formatSize = (bytes: number) => {
   if (bytes === 0) return '0 B'
@@ -48,7 +44,7 @@ const formatDate = (isoString: string) => {
   })
 }
 
-export const DocumentsView = ({}: DocumentsViewProps) => {
+export const DocumentsView = () => {
   // 数据状态
   const [docs, setDocs] = useState<DocStatusResponse[]>([])
   const [loading, setLoading] = useState(false)
@@ -155,28 +151,28 @@ export const DocumentsView = ({}: DocumentsViewProps) => {
   const getIcon = (fileName: string) => {
     const ext = fileName.split('.').pop()?.toLowerCase()
     switch (ext) {
-      case 'pdf':
-        return <FileText className="h-6 w-6 text-red-500" />
-      case 'doc':
-      case 'docx':
-        return <FileText className="h-6 w-6 text-blue-500" />
-      case 'md':
-        return <FileCode className="h-6 w-6 text-amber-600" />
-      case 'txt':
-        return <FileText className="h-6 w-6 text-gray-500" />
-      case 'xls':
-      case 'xlsx':
-      case 'csv':
-        return <FileSpreadsheet className="h-6 w-6 text-emerald-500" />
-      case 'ppt':
-      case 'pptx':
-        return <FileText className="h-6 w-6 text-orange-500" />
-      case 'json':
-      case 'xml':
-      case 'html':
-        return <FileCode className="h-6 w-6 text-slate-500" />
-      default:
-        return <File className="h-6 w-6 text-gray-400" />
+    case 'pdf':
+      return <FileText className="h-6 w-6 text-red-500" />
+    case 'doc':
+    case 'docx':
+      return <FileText className="h-6 w-6 text-blue-500" />
+    case 'md':
+      return <FileCode className="h-6 w-6 text-amber-600" />
+    case 'txt':
+      return <FileText className="h-6 w-6 text-gray-500" />
+    case 'xls':
+    case 'xlsx':
+    case 'csv':
+      return <FileSpreadsheet className="h-6 w-6 text-emerald-500" />
+    case 'ppt':
+    case 'pptx':
+      return <FileText className="h-6 w-6 text-orange-500" />
+    case 'json':
+    case 'xml':
+    case 'html':
+      return <FileCode className="h-6 w-6 text-slate-500" />
+    default:
+      return <File className="h-6 w-6 text-gray-400" />
     }
   }
 
@@ -184,47 +180,47 @@ export const DocumentsView = ({}: DocumentsViewProps) => {
   const getStatusBadge = (status: string) => {
     const s = status ? status.toUpperCase() : 'UNKNOWN'
     switch (s) {
-      case 'PROCESSED':
-        return (
-          <div className="flex items-center gap-1 rounded-full border border-green-100 bg-green-50 px-2 py-0.5 text-[10px] text-green-600">
-            <CheckCircle2 className="h-3 w-3" />
-            <span>已完成</span>
-          </div>
-        )
-      case 'FAILED':
-        return (
-          <div className="flex items-center gap-1 rounded-full border border-red-100 bg-red-50 px-2 py-0.5 text-[10px] text-red-600">
-            <AlertCircle className="h-3 w-3" />
-            <span>失败</span>
-          </div>
-        )
-      case 'PENDING':
-        return (
-          <div className="flex items-center gap-1 rounded-full border border-yellow-100 bg-yellow-50 px-2 py-0.5 text-[10px] text-yellow-600">
-            <Clock className="h-3 w-3" />
-            <span>排队中</span>
-          </div>
-        )
-      case 'PROCESSING':
-        return (
-          <div className="flex items-center gap-1 rounded-full border border-blue-100 bg-blue-50 px-2 py-0.5 text-[10px] text-blue-600">
-            <Loader2 className="h-3 w-3 animate-spin" />
-            <span>处理中</span>
-          </div>
-        )
-      case 'PREPROCESSED':
-        return (
-          <div className="flex items-center gap-1 rounded-full border border-purple-100 bg-purple-50 px-2 py-0.5 text-[10px] text-purple-600">
-            <PlayCircle className="h-3 w-3" />
-            <span>预处理</span>
-          </div>
-        )
-      default:
-        return (
-          <div className="flex items-center gap-1 rounded-full border border-gray-100 bg-gray-50 px-2 py-0.5 text-[10px] text-gray-500">
-            <span>{s}</span>
-          </div>
-        )
+    case 'PROCESSED':
+      return (
+        <div className="flex items-center gap-1 rounded-full border border-green-100 bg-green-50 px-2 py-0.5 text-[10px] text-green-600">
+          <CheckCircle2 className="h-3 w-3" />
+          <span>已完成</span>
+        </div>
+      )
+    case 'FAILED':
+      return (
+        <div className="flex items-center gap-1 rounded-full border border-red-100 bg-red-50 px-2 py-0.5 text-[10px] text-red-600">
+          <AlertCircle className="h-3 w-3" />
+          <span>失败</span>
+        </div>
+      )
+    case 'PENDING':
+      return (
+        <div className="flex items-center gap-1 rounded-full border border-yellow-100 bg-yellow-50 px-2 py-0.5 text-[10px] text-yellow-600">
+          <Clock className="h-3 w-3" />
+          <span>排队中</span>
+        </div>
+      )
+    case 'PROCESSING':
+      return (
+        <div className="flex items-center gap-1 rounded-full border border-blue-100 bg-blue-50 px-2 py-0.5 text-[10px] text-blue-600">
+          <Loader2 className="h-3 w-3 animate-spin" />
+          <span>处理中</span>
+        </div>
+      )
+    case 'PREPROCESSED':
+      return (
+        <div className="flex items-center gap-1 rounded-full border border-purple-100 bg-purple-50 px-2 py-0.5 text-[10px] text-purple-600">
+          <PlayCircle className="h-3 w-3" />
+          <span>预处理</span>
+        </div>
+      )
+    default:
+      return (
+        <div className="flex items-center gap-1 rounded-full border border-gray-100 bg-gray-50 px-2 py-0.5 text-[10px] text-gray-500">
+          <span>{s}</span>
+        </div>
+      )
     }
   }
 
@@ -272,11 +268,11 @@ export const DocumentsView = ({}: DocumentsViewProps) => {
           </button>
         ))}
         <div className="ml-auto flex items-center gap-2">
-           <button
-             onClick={() => fetchDocs(pagination.page)}
-             className="rounded-md p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-             title="刷新列表"
-            >
+          <button
+            onClick={() => fetchDocs(pagination.page)}
+            className="rounded-md p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+            title="刷新列表"
+          >
             <RefreshCw className="h-4 w-4" />
           </button>
         </div>

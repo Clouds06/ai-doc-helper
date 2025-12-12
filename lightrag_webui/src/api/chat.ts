@@ -154,13 +154,15 @@ export const queryStream = async (
 
       // 处理缓冲区剩余内容 (虽然 NDJSON 通常以换行符结束，但为了保险)
       if (buffer.trim()) {
-         try {
-            const data = JSON.parse(buffer)
-            if (data.response) {
-               fullResponse += data.response
-               onData(data.response)
-            }
-         } catch(e) { /* ignore */ }
+        try {
+          const data = JSON.parse(buffer)
+          if (data.response) {
+            fullResponse += data.response
+            onData(data.response)
+          }
+        } catch(_) { // eslint-disable-line @typescript-eslint/no-unused-vars
+          /* ignore */
+        }
       }
 
     } finally {
@@ -219,7 +221,7 @@ export const submitFeedback = async (
     let result
     try {
       result = JSON.parse(responseText)
-    } catch (e) {
+    } catch (_) { // eslint-disable-line @typescript-eslint/no-unused-vars
       result = { status: 'success', message: responseText }
     }
 

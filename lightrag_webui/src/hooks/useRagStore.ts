@@ -95,6 +95,6 @@ export const useRagStore = create<RagStore>()(
 );
 
 if (typeof window !== 'undefined') {
-  // @ts-ignore
+  // @ts-expect-error: Add ragStore to window for global access (no type definition)
   window.__ragStore = useRagStore;
 }
