@@ -4,6 +4,12 @@ import { useSettingsStore } from '../stores/settings'
 import { errorMessage } from '@/lib/utils'
 import { EvalSample, RagEvalResult } from '@/types'
 import { mockRagEvalResult } from '@/data/mock'
+import {
+  DocumentsRequest,
+  PaginatedDocsResponse,
+  DeleteDocResponse,
+  DocStatusResponse
+} from '../types'
 
 // Types
 export type LightragStatus = {
@@ -258,3 +264,26 @@ export async function runRagEvaluation(): Promise<RagEvalResult> {
   }
 }
 
+/**
+ * 获取分页的文档列表
+ * 对应后端: POST /documents/paginated
+ */
+export const getDocuments = async (params: DocumentsRequest): Promise<PaginatedDocsResponse> => {
+  const response = await axiosInstance.post('/documents/paginated', params)
+  return response.data
+}
+
+/**
+ * 删除文档
+ * 对应后端: DELETE /documents/delete_document
+ */
+export const deleteDocument = async (docId: string): Promise<DeleteDocResponse> => {
+  const response = await axiosInstance.delete('/documents/delete_document', {
+    data: {
+      doc_ids: [docId],
+      delete_file: true,      // 同时删除源文件
+      delete_llm_cache: true  // 同时清理相关的 LLM 缓存
+    }
+  })
+  return response.data
+}

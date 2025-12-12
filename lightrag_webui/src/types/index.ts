@@ -30,6 +30,7 @@ export interface Citation {
   docName: string
   docType: 'pdf' | 'doc' | 'sheet' | 'md'
   score: number
+  scores?: number[]
   content: string
   page?: number
 }
@@ -101,3 +102,49 @@ export interface ConversationSession {
   lastUpdated: string;
 }
 
+export type DocStatus = 'PENDING' | 'PROCESSING' | 'PREPROCESSED' | 'PROCESSED' | 'FAILED'
+
+export interface DocStatusResponse {
+  id: string
+  content_summary: string
+  content_length: number
+  status: DocStatus
+  created_at: string
+  updated_at: string
+  track_id?: string
+  chunks_count?: number
+  error_msg?: string
+  metadata?: any
+  file_path: string
+}
+
+export interface PaginationInfo {
+  page: number
+  page_size: number
+  total_count: number
+  total_pages: number
+  has_next: boolean
+  has_prev: boolean
+}
+
+export interface PaginatedDocsResponse {
+  documents: DocStatusResponse[]
+  pagination: PaginationInfo
+  status_counts: Record<string, number>
+}
+
+export interface DocumentsRequest {
+  status_filter?: DocStatus
+  page?: number
+  page_size?: number
+  sort_field?: 'created_at' | 'updated_at' | 'id' | 'file_path'
+  sort_direction?: 'asc' | 'desc'
+  keyword?: string
+  file_type?: string
+}
+
+export interface DeleteDocResponse {
+  status: string
+  message: string
+  doc_id: string
+}

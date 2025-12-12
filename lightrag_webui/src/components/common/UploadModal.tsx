@@ -14,6 +14,7 @@ interface UploadModalProps {
 export const UploadModal = ({ onUploadComplete }: UploadModalProps) => {
   const isOpen = useUploadStore((s) => s.isOpen);
   const close = useUploadStore((s) => s.close);
+  const onSuccess = useUploadStore((s) => s.onSuccess);
 
   const [files, setFiles] = useState<File[]>([]);
   const [progresses, setProgresses] = useState<Record<string, number>>({});
@@ -116,10 +117,21 @@ export const UploadModal = ({ onUploadComplete }: UploadModalProps) => {
 
     if (hasSuccess) {
       showToast('上传完成，后台处理中', 'success');
-      if (onUploadComplete) {
-        await onUploadComplete();
+
+      // 使用 await 延迟 800ms，让用户看清成功状态
+      await new Promise((resolve) => setTimeout(resolve, 800));
+
+      // 1. 先关闭弹窗 (确保状态重置)
+      close();
+
+      // 2. 再执行回调 (刷新或跳转)
+      if (typeof onSuccess === 'function') {
+        // 场景A: 知识库页面 (DocumentsView) -> 刷新列表
+        onSuccess();
+      } else if (onUploadComplete) {
+        // 场景B: 首页 (App) -> 跳转页面
+        onUploadComplete();
       }
-      setTimeout(() => close(), 1200);
     } else {
       showToast('全部失败，请检查文件', 'warning');
     }
