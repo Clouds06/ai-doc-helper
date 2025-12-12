@@ -28,7 +28,7 @@ describe('useUploadStore', () => {
   });
 
   it('should close modal and clear the callback', () => {
-    const mockCallback = () => {};
+    const mockCallback = () => { };
 
     // 先打开
     useUploadStore.getState().open(mockCallback);
@@ -42,8 +42,8 @@ describe('useUploadStore', () => {
   });
 
   it('should overwrite callback when opened again', () => {
-    const callback1 = () => 1;
-    const callback2 = () => 2;
+    const callback1 = () => { }; // 返回void
+    const callback2 = () => { }; // 返回void
 
     useUploadStore.getState().open(callback1);
     expect(useUploadStore.getState().onSuccess).toBe(callback1);
