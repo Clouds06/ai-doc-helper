@@ -1,4 +1,6 @@
 // src/api/chat.ts
+import { backendBaseUrl } from '../lib/constants'
+
 export interface APIMessage {
   role: 'user' | 'assistant' | 'system'
   content: string
@@ -51,7 +53,7 @@ export const queryStream = async (
   temperature?: number
 ): Promise<void> => {
   try {
-    const apiUrl = 'http://localhost:9621'
+    const apiUrl = backendBaseUrl
     const endpoint = `${apiUrl}/query/stream`
 
     const params: QueryParams = {
@@ -185,7 +187,7 @@ export const submitFeedback = async (
   assistantResponse?: string
 ): Promise<{ status: string; message: string }> => {
   try {
-    const apiUrl = 'http://localhost:9621'
+    const apiUrl = backendBaseUrl
     const endpoint = `${apiUrl}/feedback`
 
     const feedbackData = {
@@ -242,7 +244,7 @@ export const query = async (
   temperature?: number
 ): Promise<QueryResponse> => {
   try {
-    const apiUrl = 'http://localhost:9621'
+    const apiUrl = backendBaseUrl
     const endpoint = `${apiUrl}/query`
 
     const params: QueryParams = {
