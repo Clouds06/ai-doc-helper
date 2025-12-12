@@ -857,20 +857,20 @@ def create_query_routes(rag, api_key: Optional[str] = None, top_k: int = 60):
                         initial_packet["references"] = references
                     # 发送初始数据包 (只要有 query_id 或 references 就发送)
                     if initial_packet:
-                        yield f"{json.dumps(initial_packet)}\n"
+                        yield f"{json.dumps(initial_packet, ensure_ascii=False)}\n"
 
                     # if request.include_references:
-                    #     yield f"{json.dumps({'references': references})}\n"
+                    #     yield f"{json.dumps({'references': references}, ensure_ascii=False)}\n"
 
                     response_stream = llm_response.get("response_iterator")
                     if response_stream:
                         try:
                             async for chunk in response_stream:
                                 if chunk:  # Only send non-empty content
-                                    yield f"{json.dumps({'response': chunk})}\n"
+                                    yield f"{json.dumps({'response': chunk}, ensure_ascii=False)}\n"
                         except Exception as e:
                             logger.error(f"Streaming error: {str(e)}")
-                            yield f"{json.dumps({'error': str(e)})}\n"
+                            yield f"{json.dumps({'error': str(e)}, ensure_ascii=False)}\n"
                 else:
                     # Non-streaming mode: send complete response in one message
                     response_content = llm_response.get("content", "")
@@ -885,7 +885,7 @@ def create_query_routes(rag, api_key: Optional[str] = None, top_k: int = 60):
                     if request.include_references:
                         complete_response["references"] = references
 
-                    yield f"{json.dumps(complete_response)}\n"
+                    yield f"{json.dumps(complete_response, ensure_ascii=False)}\n"
 
             return StreamingResponse(
                 stream_generator(),

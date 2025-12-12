@@ -1,17 +1,13 @@
 // ChatView.tsx
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo, memo } from 'react'
 import {
   X,
   Plus,
-  MoreVertical,
-  Download,
   Trash2,
   Bot,
   Sparkles,
   ThumbsUp,
   ThumbsDown,
-  Paperclip,
-  Globe,
   Loader2,
   ArrowRight,
   BookOpen,
@@ -19,12 +15,17 @@ import {
   Zap,
   Quote,
   AlertCircle,
-  MessageSquare
+  MessageSquare,
+  PanelLeftClose,
+  PanelLeftOpen
 } from 'lucide-react'
 import { ChatMessage, Citation, ConversationSession } from '../types'
 import { useRagStore } from '../hooks/useRagStore'
 import { queryStream, submitFeedback } from '../api/chat'
 import { APIMessage } from '../api/chat'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
+import { visit } from 'unist-util-visit'
 
 // 本地存储的键名
 const STORAGE_KEY = 'chat_sessions'
@@ -142,7 +143,7 @@ const sanitizeQuery = (query: string): string => {
   return sanitized.trim()
 }
 
-// 转换引用格式 
+// 转换引用格式
 const transformReferences = (refs: any[]): Citation[] => {
   return refs.map((ref, index) => {
     // 处理 scores 字段：确保它是一个数组
@@ -268,6 +269,148 @@ const simulateStreaming = (
   streamNext()
 }
 
+const staticMarkdownComponents = {
+  a: ({ node, href, children, ...props }: any) => (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="text-blue-600 hover:underline"
+      {...props}
+    >
+      {children}
+    </a>
+  ),
+  code: ({ node, className, children, ...props }: any) => {
+    const match = /language-(\w+)/.exec(className || '')
+    const isBlock = !!match || String(children).includes('\n')
+    return isBlock ? (
+      <code className="block w-full overflow-x-auto rounded bg-gray-100 p-2 text-sm dark:bg-gray-800" {...props}>
+        {children}
+      </code>
+    ) : (
+      <code className="rounded bg-gray-100 px-1 py-0.5 text-sm text-red-500 dark:bg-gray-800" {...props}>
+        {children}
+      </code>
+    )
+  },
+  hr: ({ node, ...props }: any) => (
+    <hr className="my-4 border-gray-200 dark:border-gray-700" {...props} />
+  ),
+  ul: ({ node, children, ...props }: any) => (
+    <ul className="list-disc pl-5 my-3 space-y-2" {...props}>
+      {children}
+    </ul>
+  ),
+  ol: ({ node, children, ...props }: any) => (
+    <ol className="list-decimal pl-5 my-3 space-y-2" {...props}>
+      {children}
+    </ol>
+  ),
+  li: ({ node, children, ...props }: any) => (
+    <li className="pl-1 leading-relaxed" {...props}>
+      {children}
+    </li>
+  ),
+  table: ({ node, children, ...props }: any) => (
+    <div className="my-4 w-full overflow-x-auto rounded-lg border border-gray-200">
+      <table className="w-full table-auto text-sm text-left" {...props}>
+        {children}
+      </table>
+    </div>
+  ),
+  thead: ({ node, children, ...props }: any) => (
+    <thead className="bg-gray-50 text-gray-700 font-medium" {...props}>
+      {children}
+    </thead>
+  ),
+  th: ({ node, children, ...props }: any) => (
+    <th className="px-4 py-3 border-b border-gray-200 font-semibold" {...props}>
+      {children}
+    </th>
+  ),
+  td: ({ node, children, ...props }: any) => (
+    <td className="px-4 py-3 border-b border-gray-100" {...props}>
+      {children}
+    </td>
+  )
+}
+
+// 独立的、带缓存的消息内容组件
+const MessageContent = memo(({
+  content,
+  highlightInfo,
+  isStreaming,
+  onCitationClick
+}: {
+  content: string,
+  highlightInfo?: { text: string, citations: Citation[] },
+  isStreaming?: boolean,
+  onCitationClick: (citations: Citation[]) => void
+}) => {
+  const highlightText = highlightInfo?.text
+
+  // 缓存插件配置
+  const highlightPlugin = useMemo(() => {
+    return () => (tree: any) => {
+      if (!highlightText || isStreaming) return
+      visit(tree, 'text', (node: any, index: number | undefined, parent: any) => {
+        if (node.value && node.value.includes(highlightText)) {
+          const parts = node.value.split(highlightText)
+          const newNodes: any[] = []
+          parts.forEach((part: string, i: number) => {
+            if (part) newNodes.push({ type: 'text', value: part })
+            if (i < parts.length - 1) {
+              newNodes.push({
+                type: 'element',
+                tagName: 'span',
+                properties: { className: ['citation-highlight'] },
+                children: [{ type: 'text', value: highlightText }]
+              })
+            }
+          })
+          if (parent && typeof index === 'number') {
+            parent.children.splice(index, 1, ...newNodes)
+            return index + newNodes.length
+          }
+        }
+      })
+    }
+  }, [highlightText, isStreaming])
+
+  // 缓存组件配置
+  const components = useMemo(() => ({
+    ...staticMarkdownComponents,
+    span: ({ node, className, children, ...props }: any) => {
+      if (className?.includes('citation-highlight') && highlightInfo) {
+        return (
+          <span
+            onClick={() => onCitationClick(highlightInfo.citations)}
+            className="cursor-pointer rounded-sm border-b-2 border-blue-200 bg-blue-50 px-0.5 text-blue-700 transition-colors hover:bg-blue-100"
+            title="点击查看引用来源"
+            {...props}
+          >
+            {children}
+          </span>
+        )
+      }
+      return <span className={className} {...props}>{children}</span>
+    }
+  }), [highlightInfo, onCitationClick]) // 只有当引用信息变化时才更新引用组件
+
+  return (
+    <div className="prose prose-sm max-w-none break-words dark:prose-invert prose-p:leading-loose prose-p:my-4 prose-pre:p-0">
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        rehypePlugins={[highlightPlugin]}
+        components={components}
+      >
+        {content}
+      </ReactMarkdown>
+    </div>
+  )
+})
+
 export const ChatView = ({ initialQuery }: { initialQuery?: string }) => {
   const {
     queryInput,
@@ -282,6 +425,7 @@ export const ChatView = ({ initialQuery }: { initialQuery?: string }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState(initialQuery || queryInput || '')
   const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [showClearAllConfirm, setShowClearAllConfirm] = useState(false)
   const [activeCitations, setActiveCitations] = useState<Citation[] | null>(null)
   const [showRefPanel, setShowRefPanel] = useState(false)
   const [isTyping, setIsTyping] = useState(false)
@@ -296,6 +440,7 @@ export const ChatView = ({ initialQuery }: { initialQuery?: string }) => {
   const scrollRef = useRef<HTMLDivElement>(null)
   const pendingQueryProcessedRef = useRef(false)
   const inputErrorTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   // 清理计时器
   useEffect(() => {
@@ -305,6 +450,16 @@ export const ChatView = ({ initialQuery }: { initialQuery?: string }) => {
       }
     }
   }, [])
+
+  // 输入框高度自适应逻辑
+  useEffect(() => {
+    const textarea = textareaRef.current
+    if (textarea) {
+      textarea.style.height = 'auto'
+      const newHeight = Math.min(textarea.scrollHeight, 140)
+      textarea.style.height = `${Math.max(50, newHeight)}px`
+    }
+  }, [input])
 
   // 显示输入错误提示
   const showInputErrorAlert = (message: string) => {
@@ -323,10 +478,7 @@ export const ChatView = ({ initialQuery }: { initialQuery?: string }) => {
   useEffect(() => {
     if (!pendingQuery || pendingQueryProcessedRef.current) return
 
-    console.log('处理pendingQuery:', pendingQuery)
-
     const sanitizedQuery = sanitizeQuery(pendingQuery)
-    console.log('清洗后的query:', sanitizedQuery)
 
     if (!sanitizedQuery) {
       console.warn('清洗后的查询为空，跳过处理')
@@ -452,6 +604,7 @@ export const ChatView = ({ initialQuery }: { initialQuery?: string }) => {
     const newMessages = [...messages, userMsg]
     setMessages(newMessages)
     setInput('')
+    setQueryInput('')
     setIsTyping(true)
 
     sendQueryToAPI(queryText, newMessages)
@@ -485,6 +638,7 @@ export const ChatView = ({ initialQuery }: { initialQuery?: string }) => {
     const newMessages = [...messages, userMsg]
     setMessages(newMessages)
     setInput('')
+    setQueryInput('')
     setIsTyping(true)
 
     if (!activeSessionId) {
@@ -531,14 +685,6 @@ export const ChatView = ({ initialQuery }: { initialQuery?: string }) => {
           content: msg.content
         }))
 
-      console.log('发送API请求:', {
-        query: queryText,
-        historyLength: conversationHistory.length,
-        systemPrompt,
-        chunk_top_k,
-        temperature
-      })
-
       let fullResponse = ''
       let references: any[] = []
       let queryId: string | null = null
@@ -551,13 +697,11 @@ export const ChatView = ({ initialQuery }: { initialQuery?: string }) => {
         conversationHistory,
         // 处理数据块 - 修复：立即检测并替换错误消息
         (chunk: string) => {
-          console.log('收到API数据块:', chunk.substring(0, 100) + '...')
           hasReceivedData = true
 
           // 检查是否包含"no relevant context"错误
           const chunkLower = chunk.toLowerCase()
           if (chunkLower.includes('no relevant context')) {
-            console.log('检测到无相关上下文错误，替换为友好消息')
             isNoContextError = true
 
             // 清空之前接收的内容
@@ -610,7 +754,6 @@ export const ChatView = ({ initialQuery }: { initialQuery?: string }) => {
               const match = chunk.match(/"query_id"\s*:\s*"([^"]+)"/)
               if (match && match[1] && !queryId) {
                 queryId = match[1]
-                console.log('提取到query_id:', queryId)
 
                 setMessages(prev =>
                   prev.map((msg) => {
@@ -643,11 +786,6 @@ export const ChatView = ({ initialQuery }: { initialQuery?: string }) => {
         },
         // 完成回调 - 修复：处理非错误响应的完成
         (completeResponse: string, refs?: any) => {
-          console.log('API响应完成')
-          console.log('完整响应:', completeResponse.substring(0, 200) + '...')
-          console.log('query_id:', queryId)
-          console.log('引用数据:', refs)
-          console.log('是否为无上下文错误:', isNoContextError)
 
           references = refs || []
 
@@ -784,6 +922,21 @@ export const ChatView = ({ initialQuery }: { initialQuery?: string }) => {
             30
           )
         },
+        (meta: { query_id?: string, references?: any[] }) => {
+          if (meta.query_id) {
+            queryId = meta.query_id
+            console.log('提取到query_id:', queryId)
+
+            setMessages(prev =>
+              prev.map((msg) => {
+                if (msg.id === aiMsgId) {
+                  return { ...msg, queryId: meta.query_id || undefined }
+                }
+                return msg
+              })
+            )
+          }
+        },
         systemPrompt,
         chunk_top_k,
         temperature
@@ -875,19 +1028,59 @@ export const ChatView = ({ initialQuery }: { initialQuery?: string }) => {
       e.stopPropagation()
     }
 
+    // 1. 从存储中真正删除
     const updatedSessions = deleteSessionFromStorage(sessionId)
     setSessions(updatedSessions)
     setShowDeleteConfirm(null)
 
+    // 2. 如果删除的是当前正在活动的会话，需要重置界面
     if (sessionId === activeSessionId) {
-      handleNewConversation()
+
+      pendingQueryProcessedRef.current = false
+
+      setMessages([
+        {
+          id: '0',
+          role: 'assistant',
+          content: '你好！我是你的知识库助手。你可以问我关于已上传文档的任何问题，或者让我帮你总结分析。',
+          timestamp: new Date()
+        }
+      ])
+
+      setActiveSessionId(null)
+      localStorage.removeItem(ACTIVE_SESSION_KEY)
+      setInput('')
+      setQueryInput('')
+      setConnectionError(null)
     }
   }
 
-  const handleDeleteAllSessions = () => {
+  const handleDeleteAllClick = () => {
+    setShowClearAllConfirm(true)
+  }
+
+  const confirmDeleteAllSessions = () => {
+    // 1. 清空本地存储
     const cleared = clearAllSessions()
     setSessions(cleared)
-    handleNewConversation()
+
+    // 2. 手动重置界面状态
+    pendingQueryProcessedRef.current = false
+
+    setMessages([
+      {
+        id: '0',
+        role: 'assistant',
+        content: '你好！我是你的知识库助手。你可以问我关于已上传文档的任何问题，或者让我帮你总结分析。',
+        timestamp: new Date()
+      }
+    ])
+
+    setActiveSessionId(null)
+    setInput('')
+    setQueryInput('')
+    setConnectionError(null)
+    setShowClearAllConfirm(false)
   }
 
   const toggleFeedback = (msgId: string, type: 'like' | 'dislike', e?: React.MouseEvent) => {
@@ -896,28 +1089,17 @@ export const ChatView = ({ initialQuery }: { initialQuery?: string }) => {
       e.preventDefault()
     }
 
-    console.log('点击反馈按钮:', { msgId, type })
-
     const message = messages.find(msg => msg.id === msgId)
     if (!message) {
       console.error('未找到消息:', msgId)
       return
     }
 
-    console.log('找到消息:', {
-      messageId: message.id,
-      hasQueryId: !!message.queryId,
-      queryId: message.queryId,
-      currentFeedback: message.feedback
-    })
-
     // 如果有queryId，弹出反馈模态框
     if (message.queryId) {
-      console.log('有queryId，弹出模态框')
       setPendingFeedback({ msgId, type })
       setShowFeedbackModal(msgId)
     } else {
-      console.log('没有queryId，只更新UI')
       // 如果没有queryId，只更新UI
       setMessages((prev) =>
         prev.map((msg) => {
@@ -999,38 +1181,9 @@ export const ChatView = ({ initialQuery }: { initialQuery?: string }) => {
     }
   }
 
-  const handleHighlightClick = (citations: Citation[]) => {
-    setActiveCitations(citations)
-    setShowRefPanel(true)
-  }
-
   const handleCitationsButtonClick = (citations: Citation[]) => {
     setActiveCitations(citations)
     setShowRefPanel(true)
-  }
-
-  const renderMessageContent = (msg: ChatMessage) => {
-    if (msg.role === 'user' || !msg.highlightInfo || msg.isStreaming) return msg.content
-
-    const fullText = msg.content
-    const highlightText = msg.highlightInfo.text
-
-    if (!fullText.includes(highlightText)) return fullText
-
-    const parts = fullText.split(highlightText)
-    return (
-      <>
-        {parts[0]}
-        <span
-          onClick={() => handleHighlightClick(msg.highlightInfo!.citations)}
-          className="cursor-pointer rounded-sm border-b-2 border-blue-200 bg-blue-50 px-0.5 text-blue-700 transition-colors hover:bg-blue-100"
-          title="点击查看引用来源"
-        >
-          {highlightText}
-        </span>
-        {parts[1]}
-      </>
-    )
   }
 
   const groupedSessions = groupSessionsByTime(sessions)
@@ -1057,6 +1210,32 @@ export const ChatView = ({ initialQuery }: { initialQuery?: string }) => {
                 className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
               >
                 确认删除
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 清空所有确认对话框 */}
+      {showClearAllConfirm && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-sm rounded-xl bg-white p-6 shadow-2xl">
+            <h3 className="mb-4 text-lg font-semibold text-gray-900">确认清空</h3>
+            <p className="mb-6 text-sm text-gray-600">
+              确定要清空所有历史对话吗？此操作无法撤销。
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setShowClearAllConfirm(false)}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                取消
+              </button>
+              <button
+                onClick={confirmDeleteAllSessions}
+                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+              >
+                确认清空
               </button>
             </div>
           </div>
@@ -1124,36 +1303,48 @@ export const ChatView = ({ initialQuery }: { initialQuery?: string }) => {
 
       {/* 侧边栏 */}
       <div
-        className={`absolute z-20 flex h-full flex-shrink-0 flex-col border-r border-gray-200 bg-slate-50 transition-all duration-300 md:relative ${sidebarOpen ? 'w-64 translate-x-0' : 'w-0 -translate-x-full overflow-hidden md:w-0 md:translate-x-0'} `}
+        className={`absolute z-20 flex h-full flex-shrink-0 flex-col border-r border-gray-200 bg-slate-50 transition-all duration-300 md:relative
+          ${sidebarOpen ? 'w-64 translate-x-0' : '-translate-x-full w-0 md:translate-x-0 md:w-[60px]'} `} // 【修改】桌面端折叠时保留 60px 宽度
       >
-        <div className="flex items-center justify-between p-4">
-          <h3 className="text-sm font-semibold text-slate-700">历史对话</h3>
-          <div className="flex items-center gap-1">
-            {sessions.length > 0 && (
-              <div className="relative">
-                <button
-                  onClick={handleDeleteAllSessions}
-                  className="rounded p-1 text-xs text-red-500 hover:bg-red-50"
-                  title="清空所有历史"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            )}
-            <button onClick={() => setSidebarOpen(false)} className="p-1 text-gray-400 md:hidden">
-              <X className="h-4 w-4" />
+        {/* 侧边栏顶部：标题 + 切换按钮 */}
+        <div className={`flex h-14 items-center ${sidebarOpen ? 'justify-between px-4' : 'justify-center'}`}>
+          {sidebarOpen ? (
+            <>
+              <h3 className="text-sm font-semibold text-slate-700">历史对话</h3>
+              <button
+                onClick={() => setSidebarOpen(false)}
+                className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
+                title="收起侧边栏"
+              >
+                <PanelLeftClose className="h-4 w-4" />
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
+              title="展开侧边栏"
+            >
+              <PanelLeftOpen className="h-4 w-4" />
             </button>
-          </div>
+          )}
         </div>
-        <div className="p-3">
+
+        {/* 侧边栏列表区域 */}
+        <div className="flex-1 overflow-y-auto p-3 scrollbar-thin scrollbar-thumb-gray-200 overflow-x-hidden">
           <button
             onClick={handleNewConversation}
-            className="mb-4 flex w-full items-center gap-2 rounded-lg border border-blue-100 bg-white px-3 py-2 text-sm text-blue-600 shadow-sm transition-all hover:bg-blue-50 hover:shadow"
+            className={`mb-4 flex items-center gap-2 rounded-lg border border-blue-100 bg-white py-2 text-sm text-blue-600 shadow-sm transition-all hover:bg-blue-50 hover:shadow
+              ${sidebarOpen ? 'w-full px-3 justify-start' : 'w-full h-9 px-0 justify-center'}`}
+            title="新对话"
           >
-            <Plus className="h-4 w-4" />
-            <span>新对话</span>
+            <Plus className="h-4 w-4 flex-shrink-0" />
+            {sidebarOpen && <span>新对话</span>}
           </button>
-          <div className="space-y-4">
+
+          {/* 只有展开时才显示历史列表 */}
+          <div className={`space-y-4 ${!sidebarOpen && 'hidden'}`}>
+            {/* 今天 */}
             {groupedSessions.today.length > 0 && (
               <div>
                 <div className="mb-2 px-2 text-[10px] font-medium tracking-wider text-gray-400 uppercase">
@@ -1188,6 +1379,7 @@ export const ChatView = ({ initialQuery }: { initialQuery?: string }) => {
               </div>
             )}
 
+            {/* 昨天 */}
             {groupedSessions.yesterday.length > 0 && (
               <div>
                 <div className="mb-2 px-2 text-[10px] font-medium tracking-wider text-gray-400 uppercase">
@@ -1222,6 +1414,7 @@ export const ChatView = ({ initialQuery }: { initialQuery?: string }) => {
               </div>
             )}
 
+            {/* 更早 */}
             {groupedSessions.earlier.length > 0 && (
               <div>
                 <div className="mb-2 px-2 text-[10px] font-medium tracking-wider text-gray-400 uppercase">
@@ -1267,17 +1460,21 @@ export const ChatView = ({ initialQuery }: { initialQuery?: string }) => {
             )}
           </div>
         </div>
-      </div>
 
-      {/* 侧边栏打开按钮 */}
-      {!sidebarOpen && (
-        <button
-          onClick={() => setSidebarOpen(true)}
-          className="absolute top-4 left-4 z-10 rounded-lg border border-gray-200 bg-white p-2 text-gray-500 shadow-sm hover:text-blue-600"
-        >
-          <MoreVertical className="h-4 w-4" />
-        </button>
-      )}
+        {/* 侧边栏底部 */}
+        {sessions.length > 0 && sidebarOpen && (
+          <div className="border-t border-gray-200 p-3 bg-slate-50">
+            <button
+              onClick={handleDeleteAllClick}
+              className="flex w-full items-center justify-center gap-2 rounded-lg border border-transparent px-3 py-2 text-xs text-gray-500 hover:bg-red-50 hover:text-red-600 transition-colors"
+              title="清空所有历史"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              <span>清空所有历史对话</span>
+            </button>
+          </div>
+        )}
+      </div>
 
       {/* 主聊天区域 */}
       <div className="relative flex h-full min-w-0 flex-1 flex-col bg-slate-50/30">
@@ -1312,9 +1509,6 @@ export const ChatView = ({ initialQuery }: { initialQuery?: string }) => {
             )}
           </div>
           <div className="flex items-center gap-2">
-            <button className="rounded-full p-2 text-gray-400 hover:bg-gray-100">
-              <Download className="h-4 w-4" />
-            </button>
             <button
               onClick={handleNewConversation}
               className="rounded-full p-2 text-gray-400 hover:bg-gray-100"
@@ -1327,7 +1521,7 @@ export const ChatView = ({ initialQuery }: { initialQuery?: string }) => {
 
         {/* 消息区域 */}
         <div
-          className="z-10 flex-1 space-y-6 overflow-y-auto scroll-smooth p-4 md:p-6"
+          className="z-10 flex-1 space-y-6 overflow-y-auto p-4 md:p-6"
           ref={scrollRef}
         >
           {messages.length === 0 ? (
@@ -1350,18 +1544,26 @@ export const ChatView = ({ initialQuery }: { initialQuery?: string }) => {
                 )}
                 <div className="flex max-w-[85%] flex-col gap-2 md:max-w-[70%]">
                   <div
-                    className={`rounded-2xl p-3.5 text-sm leading-relaxed shadow-sm ${msg.role === 'user' ? 'rounded-br-none bg-blue-600 text-white' : 'rounded-tl-none border border-gray-100 bg-white text-gray-700'}`}
+                    className={`rounded-2xl p-3.5 shadow-sm ${msg.role === 'user'
+                      ? 'rounded-br-none bg-blue-600 text-white text-sm leading-relaxed'
+                      : 'rounded-tl-none border border-gray-100 bg-white text-gray-700'
+                      }`}
                   >
-                    {renderMessageContent(msg)}
-                    {msg.role === 'assistant' && msg.isStreaming && (
-                      <span className="ml-1 inline-block h-3 w-1.5 animate-pulse bg-blue-500 align-middle"></span>
+                    {msg.role === 'user' ? (
+                      <div className="whitespace-pre-wrap">{msg.content}</div>
+                    ) : (
+                      <MessageContent
+                        content={msg.content}
+                        highlightInfo={msg.highlightInfo}
+                        isStreaming={msg.isStreaming}
+                        onCitationClick={handleCitationsButtonClick}
+                      />
                     )}
                   </div>
                   {msg.role === 'assistant' && !msg.isStreaming && (
                     <div className="flex items-center gap-2 px-1">
                       <button
                         onClick={(e) => {
-                          console.log('点赞按钮被点击:', msg.id, Date.now())
                           toggleFeedback(msg.id, 'like', e)
                         }}
                         className={`rounded p-1 transition-colors hover:bg-gray-100 ${msg.feedback === 'like'
@@ -1379,7 +1581,6 @@ export const ChatView = ({ initialQuery }: { initialQuery?: string }) => {
                       </button>
                       <button
                         onClick={(e) => {
-                          console.log('点踩按钮被点击:', msg.id, Date.now())
                           toggleFeedback(msg.id, 'dislike', e)
                         }}
                         className={`rounded p-1 transition-colors hover:bg-gray-100 ${msg.feedback === 'dislike'
@@ -1442,15 +1643,8 @@ export const ChatView = ({ initialQuery }: { initialQuery?: string }) => {
             </div>
           )}
           <div className="relative mx-auto max-w-4xl">
-            <div className="absolute top-3 left-3 flex gap-2">
-              <button className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-blue-600">
-                <Paperclip className="h-4 w-4" />
-              </button>
-              <button className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-blue-600">
-                <Globe className="h-4 w-4" />
-              </button>
-            </div>
             <textarea
+              ref={textareaRef}
               value={input}
               onChange={(e) => {
                 setInput(e.target.value)
@@ -1464,12 +1658,15 @@ export const ChatView = ({ initialQuery }: { initialQuery?: string }) => {
               }}
               placeholder={isTyping ? 'AI 正在思考中...' : '问点什么... (至少3个字符)'}
               disabled={isTyping}
-              className="h-[50px] max-h-[120px] w-full resize-none rounded-xl border border-gray-200 bg-gray-50 py-3 pr-12 pl-24 transition-all focus:border-blue-400 focus:bg-white focus:ring-4 focus:ring-blue-50/50 focus:outline-none disabled:bg-gray-100 disabled:text-gray-400"
+              className="min-h-[52px] max-h-[140px] w-full resize-none overflow-y-auto rounded-2xl border border-gray-200 bg-gray-50 py-3.5 pr-14 pl-5 text-sm leading-relaxed shadow-sm transition-all focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100 focus:outline-none disabled:bg-gray-50 disabled:text-gray-400 scrollbar-thin scrollbar-thumb-gray-200"
             />
             <button
               onClick={handleSend}
               disabled={!input.trim() || input.trim().length < 3 || isTyping}
-              className={`absolute top-2 right-2 rounded-lg p-2 transition-all ${input.trim().length >= 3 && !isTyping ? 'bg-blue-600 text-white shadow-md hover:bg-blue-700' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}
+              className={`absolute bottom-4 right-4 flex h-9 w-9 items-center justify-center rounded-full transition-all duration-200 ${input.trim().length >= 3 && !isTyping
+                  ? 'bg-blue-600 text-white shadow-md hover:bg-blue-700 hover:shadow-lg hover:-translate-y-0.5'
+                  : 'bg-transparent text-gray-300 cursor-not-allowed hover:bg-gray-100'
+                }`}
               title={input.trim().length < 3 ? '请输入至少3个字符' : isTyping ? 'AI正在思考中' : '发送消息'}
             >
               {isTyping ? (

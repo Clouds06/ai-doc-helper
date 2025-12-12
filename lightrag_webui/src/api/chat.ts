@@ -45,6 +45,7 @@ export const queryStream = async (
   onData: (chunk: string) => void,
   onComplete: (fullResponse: string, refs?: any[]) => void,
   onError: (error: Error) => void,
+  onMetadata: (meta: { query_id?: string, references?: any[] }) => void,
   systemPrompt?: string,
   chunkTopK?: number,
   temperature?: number
@@ -97,65 +98,75 @@ export const queryStream = async (
     let fullResponse = ''
     let references: any[] = []
     let queryId: string | null = null
+    let buffer = '' // 用于处理流式数据的缓冲区
 
     try {
       while (true) {
         const { done, value } = await reader.read()
         if (done) break
 
-        const chunk = new TextDecoder().decode(value)
-        console.log('收到流数据:', chunk.substring(0, 100) + '...')
+        // 解码当前块并追加到缓冲区
+        buffer += new TextDecoder().decode(value, { stream: true })
 
-        // 处理流式数据
-        fullResponse += chunk
-        onData(chunk)
+        // 按行分割数据
+        const lines = buffer.split('\n')
 
-        // 尝试提取query_id和references
-        try {
-          const lines = chunk.split('\n').filter(line => line.trim())
-          for (const line of lines) {
-            if (line.includes('query_id') && !queryId) {
-              const match = line.match(/"query_id"\s*:\s*"([^"]+)"/)
-              if (match && match[1]) {
-                queryId = match[1]
-                console.log('提取到query_id:', queryId)
-              }
+        // 保留最后一个可能不完整的行在缓冲区中
+        buffer = lines.pop() || ''
+
+        // 处理每一行完整的 JSON
+        for (const line of lines) {
+          if (!line.trim()) continue
+
+          try {
+            const data = JSON.parse(line)
+
+            // 1. 处理错误
+            if (data.error) {
+              throw new Error(data.error)
             }
 
-            if (line.includes('references')) {
-              try {
-                const jsonMatch = line.match(/"references"\s*:\s*(\[[^\]]+\])/)
-                if (jsonMatch) {
-                  references = JSON.parse(jsonMatch[1])
-                  console.log('提取到references:', references)
-                }
-              } catch (e) {
-                console.log('解析references失败:', e)
-              }
+            // 2. 处理引用
+            if (data.references) {
+              references = data.references
+              console.log('提取到references:', references)
+              onMetadata({ references })
             }
+
+            // 3. 处理 Query ID
+            if (data.query_id) {
+              queryId = data.query_id
+              console.log('提取到query_id:', queryId)
+              onMetadata({ query_id: queryId || undefined })
+            }
+
+            // 4. 处理内容响应
+            if (data.response) {
+              fullResponse += data.response
+              onData(data.response) // 只发送纯文本内容
+            }
+
+          } catch (e) {
+            console.warn('解析流数据行失败:', line, e)
           }
-        } catch (parseError) {
-          console.log('解析流数据失败:', parseError)
         }
       }
+
+      // 处理缓冲区剩余内容 (虽然 NDJSON 通常以换行符结束，但为了保险)
+      if (buffer.trim()) {
+         try {
+            const data = JSON.parse(buffer)
+            if (data.response) {
+               fullResponse += data.response
+               onData(data.response)
+            }
+         } catch(e) { /* ignore */ }
+      }
+
     } finally {
       reader.releaseLock()
     }
 
-    // 如果query_id还没有提取到，尝试从完整响应中提取
-    if (!queryId) {
-      try {
-        const match = fullResponse.match(/"query_id"\s*:\s*"([^"]+)"/)
-        if (match && match[1]) {
-          queryId = match[1]
-          console.log('从完整响应中提取到query_id:', queryId)
-        }
-      } catch (e) {
-        console.warn('无法提取query_id:', e)
-      }
-    }
-
-    console.log('流式查询完成，总响应长度:', fullResponse.length)
     onComplete(fullResponse, references)
   } catch (error) {
     console.error('流式查询失败:', error)
