@@ -55,6 +55,7 @@ export const UploadModal = ({ onUploadComplete }: UploadModalProps) => {
   };
 
   const removeFile = (idx: number) => {
+    setFinished(false);
     setFiles((prev) => {
       const target = prev[idx];
       const next = prev.filter((_, i) => i !== idx);
@@ -94,6 +95,12 @@ export const UploadModal = ({ onUploadComplete }: UploadModalProps) => {
     let hasSuccess = false;
 
     for (const file of files) {
+      // 跳过已经上传成功且没有报错的文件
+      if (progresses[file.name] === 100 && !errors[file.name]) {
+        hasSuccess = true;
+        continue;
+      }
+
       try {
         setProgress(file.name, 0);
 
@@ -104,6 +111,8 @@ export const UploadModal = ({ onUploadComplete }: UploadModalProps) => {
         if (res.status === 'success') {
           hasSuccess = true;
           setProgress(file.name, 100);
+        } else if (res.status === 'duplicated') {
+          setError(file.name, '文件已存在，请勿重复上传');
         } else {
           setError(file.name, '上传失败，请稍后重试');
         }
@@ -171,6 +180,7 @@ export const UploadModal = ({ onUploadComplete }: UploadModalProps) => {
         <div className="p-6 overflow-y-auto flex-1 scrollbar-thin scrollbar-thumb-gray-200">
           <InnerFileUploader
             disabled={uploading || finished}
+            uploading={uploading}
             maxFileCount={Infinity}
             multiple
             maxSize={200 * 1024 * 1024}

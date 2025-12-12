@@ -17,7 +17,7 @@ import {
   Clock,
   PlayCircle
 } from 'lucide-react'
-import { getDocuments, deleteDocument } from '../api/lightrag'
+import { getDocuments, deleteDocument, checkHealth } from '../api/lightrag'
 import { DocStatusResponse, PaginationInfo } from '../types'
 import { toast } from 'sonner'
 import { errorMessage } from '@/lib/utils'
@@ -127,12 +127,48 @@ export const DocumentsView = () => {
 
   // 处理删除
   const handleDelete = async (docId: string) => {
+    // 1. 删除前先检查后端管道状态
+    try {
+      const healthData = await checkHealth()
+
+      // 检查后端管道状态是否正忙
+      const isBusy = healthData.status === 'healthy' && (healthData as any).pipeline_busy === true
+
+      if (isBusy) {
+        toast.warning('无法执行删除', {
+          description: '系统正在处理上传的文件（索引或提取中），请等待当前任务完成后再试。',
+          duration: 4000,
+        })
+        return
+      }
+    } catch (e) {
+      console.warn('[Debug] Health check failed before delete:', e)
+    }
+
+    // 2. 弹出确认框
     if (!window.confirm('确定要删除该文档及其所有索引数据吗？此操作不可恢复。')) return
 
     try {
-      await deleteDocument(docId)
+      const res = await deleteDocument(docId)
+      console.log('[Debug] Delete Response:', res)
+
+      // 3. 双重保险：兼容后端可能返回的几种忙碌状态码
+      if (
+        res.status === 'busy' ||
+        (res.status === 'not_allowed' && res.message?.includes('busy')) ||
+        (res.status === 'deletion_started' && res.message?.includes('busy'))
+      ) {
+        toast.warning('系统繁忙', {
+          description: res.message || '后台正在处理任务，请稍后再试。'
+        })
+        return
+      }
+
       toast.success('文档已删除')
+
+      // 稍微延迟刷新，确保后端状态更新
       await new Promise((resolve) => setTimeout(resolve, 1000))
+
       fetchDocs(pagination.page)
       setActiveMenuDocId(null)
     } catch (err) {
@@ -151,28 +187,28 @@ export const DocumentsView = () => {
   const getIcon = (fileName: string) => {
     const ext = fileName.split('.').pop()?.toLowerCase()
     switch (ext) {
-    case 'pdf':
-      return <FileText className="h-6 w-6 text-red-500" />
-    case 'doc':
-    case 'docx':
-      return <FileText className="h-6 w-6 text-blue-500" />
-    case 'md':
-      return <FileCode className="h-6 w-6 text-amber-600" />
-    case 'txt':
-      return <FileText className="h-6 w-6 text-gray-500" />
-    case 'xls':
-    case 'xlsx':
-    case 'csv':
-      return <FileSpreadsheet className="h-6 w-6 text-emerald-500" />
-    case 'ppt':
-    case 'pptx':
-      return <FileText className="h-6 w-6 text-orange-500" />
-    case 'json':
-    case 'xml':
-    case 'html':
-      return <FileCode className="h-6 w-6 text-slate-500" />
-    default:
-      return <File className="h-6 w-6 text-gray-400" />
+      case 'pdf':
+        return <FileText className="h-6 w-6 text-red-500" />
+      case 'doc':
+      case 'docx':
+        return <FileText className="h-6 w-6 text-blue-500" />
+      case 'md':
+        return <FileCode className="h-6 w-6 text-amber-600" />
+      case 'txt':
+        return <FileText className="h-6 w-6 text-gray-500" />
+      case 'xls':
+      case 'xlsx':
+      case 'csv':
+        return <FileSpreadsheet className="h-6 w-6 text-emerald-500" />
+      case 'ppt':
+      case 'pptx':
+        return <FileText className="h-6 w-6 text-orange-500" />
+      case 'json':
+      case 'xml':
+      case 'html':
+        return <FileCode className="h-6 w-6 text-slate-500" />
+      default:
+        return <File className="h-6 w-6 text-gray-400" />
     }
   }
 
@@ -180,47 +216,47 @@ export const DocumentsView = () => {
   const getStatusBadge = (status: string) => {
     const s = status ? status.toUpperCase() : 'UNKNOWN'
     switch (s) {
-    case 'PROCESSED':
-      return (
-        <div className="flex items-center gap-1 rounded-full border border-green-100 bg-green-50 px-2 py-0.5 text-[10px] text-green-600">
-          <CheckCircle2 className="h-3 w-3" />
-          <span>已完成</span>
-        </div>
-      )
-    case 'FAILED':
-      return (
-        <div className="flex items-center gap-1 rounded-full border border-red-100 bg-red-50 px-2 py-0.5 text-[10px] text-red-600">
-          <AlertCircle className="h-3 w-3" />
-          <span>失败</span>
-        </div>
-      )
-    case 'PENDING':
-      return (
-        <div className="flex items-center gap-1 rounded-full border border-yellow-100 bg-yellow-50 px-2 py-0.5 text-[10px] text-yellow-600">
-          <Clock className="h-3 w-3" />
-          <span>排队中</span>
-        </div>
-      )
-    case 'PROCESSING':
-      return (
-        <div className="flex items-center gap-1 rounded-full border border-blue-100 bg-blue-50 px-2 py-0.5 text-[10px] text-blue-600">
-          <Loader2 className="h-3 w-3 animate-spin" />
-          <span>处理中</span>
-        </div>
-      )
-    case 'PREPROCESSED':
-      return (
-        <div className="flex items-center gap-1 rounded-full border border-purple-100 bg-purple-50 px-2 py-0.5 text-[10px] text-purple-600">
-          <PlayCircle className="h-3 w-3" />
-          <span>预处理</span>
-        </div>
-      )
-    default:
-      return (
-        <div className="flex items-center gap-1 rounded-full border border-gray-100 bg-gray-50 px-2 py-0.5 text-[10px] text-gray-500">
-          <span>{s}</span>
-        </div>
-      )
+      case 'PROCESSED':
+        return (
+          <div className="flex items-center gap-1 rounded-full border border-green-100 bg-green-50 px-2 py-0.5 text-[10px] text-green-600">
+            <CheckCircle2 className="h-3 w-3" />
+            <span>已完成</span>
+          </div>
+        )
+      case 'FAILED':
+        return (
+          <div className="flex items-center gap-1 rounded-full border border-red-100 bg-red-50 px-2 py-0.5 text-[10px] text-red-600">
+            <AlertCircle className="h-3 w-3" />
+            <span>失败</span>
+          </div>
+        )
+      case 'PENDING':
+        return (
+          <div className="flex items-center gap-1 rounded-full border border-yellow-100 bg-yellow-50 px-2 py-0.5 text-[10px] text-yellow-600">
+            <Clock className="h-3 w-3" />
+            <span>排队中</span>
+          </div>
+        )
+      case 'PROCESSING':
+        return (
+          <div className="flex items-center gap-1 rounded-full border border-blue-100 bg-blue-50 px-2 py-0.5 text-[10px] text-blue-600">
+            <Loader2 className="h-3 w-3 animate-spin" />
+            <span>处理中</span>
+          </div>
+        )
+      case 'PREPROCESSED':
+        return (
+          <div className="flex items-center gap-1 rounded-full border border-purple-100 bg-purple-50 px-2 py-0.5 text-[10px] text-purple-600">
+            <PlayCircle className="h-3 w-3" />
+            <span>预处理</span>
+          </div>
+        )
+      default:
+        return (
+          <div className="flex items-center gap-1 rounded-full border border-gray-100 bg-gray-50 px-2 py-0.5 text-[10px] text-gray-500">
+            <span>{s}</span>
+          </div>
+        )
     }
   }
 
