@@ -1,0 +1,192 @@
+{
+  "detailed_results": [
+    {
+      "question": "LightRAG如何解决大型语言模型的幻觉问题？",
+      "answer": "No relevant context found for the query.",
+      "contexts": [],
+      "ground_truth": "通过将大型语言模型与外部知识检索相结合, 确保LLM输出基于实际文档, 提供上下文响应以显著减少幻觉",
+      "faithfulness": 0.0,
+      "answer_relevancy": 0.0,
+      "context_recall": 0.0,
+      "context_precision": 0.0,
+      "reasoning": {
+        "faithfulness": "模型回答'No relevant context found for the query'与标准答案'通过将大型语言模型与外部知识检索相结合-确保LLM输出基于实际文档-提供上下文响应以显著减少幻觉'完全不符，未覆盖任何核心点，且回答内容与标准答案冲突，属于完全偏离",
+        "answer_relevancy": "模型回答'No relevant context found for the query'未直接回答'LightRAG如何解决大型语言模型的幻觉问题'这一核心问题，而是表示未找到相关上下文，属于完全不相关的内容",
+        "context_recall": "标准答案包含3个核心点：1)结合外部知识检索 2)确保输出基于实际文档 3)提供上下文响应减少幻觉。模型回答未提及其中任何一个核心点，完全遗漏所有内容",
+        "context_precision": "模型回答声称'No relevant context found'，但指定参考文档为01_lightrag_overview.md，这表明模型未能正确引用或利用指定文档。回答中未引用任何文档内容，也未优先使用指定文档，且回答内容与提供的参考文档不匹配"
+      },
+      "user_input": "LightRAG如何解决大型语言模型的幻觉问题？",
+      "retrieved_contexts": []
+    },
+    {
+      "question": "RAG系统需要哪三个主要组件？",
+      "answer": "No relevant context found for the query.",
+      "contexts": [],
+      "ground_truth": "检索系统（向量数据库或搜索引擎）, 嵌入模型（将文本转换为向量表示）, 大型语言模型（基于检索的上下文生成响应）",
+      "faithfulness": 0.0,
+      "answer_relevancy": 0.0,
+      "context_recall": 0.0,
+      "context_precision": 0.0,
+      "reasoning": {
+        "faithfulness": "模型回答'No relevant context found for the query'与标准答案完全不符，未覆盖任何核心要点，且与标准答案内容冲突，属于完全偏离",
+        "answer_relevancy": "回答未直接回应问题核心'RAG系统需要哪三个主要组件'，而是表示未找到相关上下文，完全未提供任何相关信息",
+        "context_recall": "标准答案的三个核心组件（检索系统、嵌入模型、大型语言模型）在模型回答中均未提及，完全遗漏所有要点",
+        "context_precision": "模型回答未引用任何文档内容，未优先使用指定文档02_rag_architecture.md，也未提供任何与参考文档匹配的引用信息"
+      },
+      "user_input": "RAG系统需要哪三个主要组件？",
+      "retrieved_contexts": []
+    },
+    {
+      "question": "LightRAG相比传统RAG方法有哪些改进？",
+      "answer": "No relevant context found for the query.",
+      "contexts": [],
+      "ground_truth": "更简单的API设计, 更快的检索性能, 更好的向量数据库集成, 优化的提示策略",
+      "faithfulness": 0.0,
+      "answer_relevancy": 0.0,
+      "context_recall": 0.0,
+      "context_precision": 0.0,
+      "reasoning": {
+        "faithfulness": "模型回答'No relevant context found for the query'与标准答案完全不符，未覆盖任何核心要点，且与标准答案内容冲突，属于完全偏离",
+        "answer_relevancy": "回答未直接回应问题核心'LightRAG相比传统RAG方法有哪些改进'，而是表示未找到相关内容，属于完全不相关回答",
+        "context_recall": "标准答案包含4个核心要点（更简单的API设计、更快的检索性能、更好的向量数据库集成、优化的提示策略），模型回答未提及其中任何一个，完全遗漏所有核心点",
+        "context_precision": "模型回答声称未找到相关内容，但指定参考文档为'03_lightrag_improvements.md'，表明应存在相关文档。回答未引用任何文档，也未优先使用指定文档，且与提供的参考文档不匹配"
+      },
+      "user_input": "LightRAG相比传统RAG方法有哪些改进？",
+      "retrieved_contexts": []
+    },
+    {
+      "question": "LightRAG支持哪些向量数据库？",
+      "answer": "No relevant context found for the query.",
+      "contexts": [],
+      "ground_truth": "ChromaDB, Neo4j, Milvus, Qdrant, MongoDB Atlas, Redis, 内置的nano-vectordb",
+      "faithfulness": 0.0,
+      "answer_relevancy": 0.0,
+      "context_recall": 0.0,
+      "context_precision": 0.0,
+      "reasoning": {
+        "faithfulness": "模型回答'No relevant context found for the query'与标准答案完全不符，未覆盖任何核心点，且与标准答案内容冲突，属于完全偏离",
+        "answer_relevancy": "模型回答未直接回答问题'LightRAG支持哪些向量数据库？'，而是表示未找到相关内容，因此完全不相关",
+        "context_recall": "标准答案包含7个核心点（ChromaDB、Neo4j、Milvus、Qdrant、MongoDB Atlas、Redis、内置的nano-vectordb），模型回答未提及其中任何一个，完全遗漏所有核心点",
+        "context_precision": "模型回答未引用任何文档内容，未优先使用指定文档04_supported_databases.md，且回答内容与提供的参考文档不匹配，完全缺乏相关引用"
+      },
+      "user_input": "LightRAG支持哪些向量数据库？",
+      "retrieved_contexts": []
+    },
+    {
+      "question": "评估RAG系统质量的四个关键指标是什么？",
+      "answer": "No relevant context found for the query.",
+      "contexts": [],
+      "ground_truth": "忠实度（Faithfulness）, 答案相关性（Answer Relevance）, 上下文召回率（Context Recall）, 上下文精确率（Context Precision）",
+      "faithfulness": 0.0,
+      "answer_relevancy": 0.0,
+      "context_recall": 0.0,
+      "context_precision": 0.0,
+      "reasoning": {
+        "faithfulness": "模型回答'No relevant context found for the query'与标准答案完全不符，未覆盖任何核心要点，且与标准答案内容冲突，属于完全偏离",
+        "answer_relevancy": "模型回答未直接回答问题核心，而是表示未找到相关内容，属于完全无关的回答",
+        "context_recall": "模型回答未覆盖标准答案中的任何核心要点（忠实度、答案相关性、上下文召回率、上下文精确率），所有要点均未提及",
+        "context_precision": "模型回答未引用任何文档，未优先使用指定文档，也未匹配提供的参考文档内容，完全不符合精确度要求"
+      },
+      "user_input": "评估RAG系统质量的四个关键指标是什么？",
+      "retrieved_contexts": []
+    },
+    {
+      "question": "LightRAG的核心优势是什么？",
+      "answer": "No relevant context found for the query.",
+      "contexts": [],
+      "ground_truth": "通过文档基础的响应提高准确性, 无需模型重训练即可获取最新信息, 通过专业文档集合实现领域专业知识, 通过避免昂贵的微调实现成本效益, 通过显示源文档确保透明度",
+      "faithfulness": 0.0,
+      "answer_relevancy": 0.0,
+      "context_recall": 0.0,
+      "context_precision": 0.0,
+      "reasoning": {
+        "faithfulness": "模型回答'No relevant context found for the query'与标准答案完全不符，未覆盖任何核心要点，且与标准答案内容冲突，属于完全偏离",
+        "answer_relevancy": "模型回答未直接回应问题'LightRAG的核心优势是什么'，而是表示未找到相关上下文，完全未提供任何与问题相关的信息",
+        "context_recall": "标准答案包含5个核心要点，模型回答未提及其中任何一个，所有核心要点均被完全遗漏",
+        "context_precision": "模型回答未引用任何文档，未使用指定的参考文档01_lightrag_overview.md，也未提供任何与参考文档匹配的内容"
+      },
+      "user_input": "LightRAG的核心优势是什么？",
+      "retrieved_contexts": []
+    },
+    {
+      "question": "LightRAG的部署选项有哪些？",
+      "answer": "No relevant context found for the query.",
+      "contexts": [],
+      "ground_truth": "Docker容器部署, 使用FastAPI的REST API服务器, 直接Python集成",
+      "faithfulness": 0.0,
+      "answer_relevancy": 0.0,
+      "context_recall": 0.0,
+      "context_precision": 0.0,
+      "reasoning": {
+        "faithfulness": "模型回答'No relevant context found for the query'与标准答案'Docker容器部署、使用FastAPI的REST API服务器、直接Python集成'完全不符，未覆盖任何核心点，属于完全偏离标准答案的情况",
+        "answer_relevancy": "模型回答'No relevant context found for the query'未直接回答'LightRAG的部署选项有哪些'这一问题的核心，而是表示未找到相关信息，因此完全不相关",
+        "context_recall": "标准答案包含3个核心部署选项，模型回答未提及其中任何一个核心点，所有核心点均完全未覆盖",
+        "context_precision": "模型回答未引用任何文档内容，未优先使用指定文档'05_evaluation_and_deployment.md'，也未匹配提供的参考文档，因此所有判断点均未满足"
+      },
+      "user_input": "LightRAG的部署选项有哪些？",
+      "retrieved_contexts": []
+    },
+    {
+      "question": "Neo4j数据库在LightRAG中有什么特点？",
+      "answer": "No relevant context found for the query.",
+      "contexts": [],
+      "ground_truth": "图数据库, 支持基于图的知识表示, 结合关系建模和向量功能",
+      "faithfulness": 0.0,
+      "answer_relevancy": 0.0,
+      "context_recall": 0.0,
+      "context_precision": 0.0,
+      "reasoning": {
+        "faithfulness": "模型回答'No relevant context found for the query'与标准答案'图数据库-支持基于图的知识表示-结合关系建模和向量功能'完全不符，未覆盖任何核心点，且与标准答案内容冲突，属于完全偏离",
+        "answer_relevancy": "模型回答未直接回应问题'Neo4j数据库在LightRAG中有什么特点'，而是表示未找到相关内容，因此完全不相关，未包含任何与问题核心相关的信息",
+        "context_recall": "标准答案包含3个核心点：图数据库、支持基于图的知识表示、结合关系建模和向量功能，模型回答未提及其中任何一个核心点，完全遗漏所有内容",
+        "context_precision": "模型回答未引用任何文档内容，未使用指定的参考文档'04_supported_databases.md'，也未提供任何与问题相关的上下文引用，因此所有判断点均未满足"
+      },
+      "user_input": "Neo4j数据库在LightRAG中有什么特点？",
+      "retrieved_contexts": []
+    },
+    {
+      "question": "忠实度指标衡量什么？",
+      "answer": "No relevant context found for the query.",
+      "contexts": [],
+      "ground_truth": "答案是否基于检索的上下文中的事实, 检测LLM响应中的幻觉, 评估生成响应的事实准确性",
+      "faithfulness": 0.0,
+      "answer_relevancy": 0.0,
+      "context_recall": 0.0,
+      "context_precision": 0.0,
+      "reasoning": {
+        "faithfulness": "模型回答'No relevant context found for the query'与标准答案'答案是否基于检索的上下文中的事实-检测LLM响应中的幻觉-评估生成响应的事实准确性'完全不符，未覆盖任何核心点，且与标准答案内容冲突，属于完全偏离",
+        "answer_relevancy": "模型回答'No relevant context found for the query'未直接回答问题'忠实度指标衡量什么？'的核心，而是表示未找到相关上下文，属于完全不相关的内容",
+        "context_recall": "模型回答未覆盖标准答案的任何核心点（基于检索上下文的事实、检测幻觉、评估事实准确性），所有核心点均未提及",
+        "context_precision": "模型回答未引用任何文档内容，未优先使用指定文档'05_evaluation_and_deployment.md'，也未匹配提供的参考文档，回答中无任何与参考文档对应的引用内容"
+      },
+      "user_input": "忠实度指标衡量什么？",
+      "retrieved_contexts": []
+    },
+    {
+      "question": "LightRAG的设计理念是什么？",
+      "answer": "No relevant context found for the query.",
+      "contexts": [],
+      "ground_truth": "优先考虑易用性而不牺牲质量, 在检索操作中结合速度和准确性, 在数据库和模型选择方面保持灵活性",
+      "faithfulness": 0.0,
+      "answer_relevancy": 0.0,
+      "context_recall": 0.0,
+      "context_precision": 0.0,
+      "reasoning": {
+        "faithfulness": "模型回答'No relevant context found for the query'与标准答案'优先考虑易用性而不牺牲质量，在检索操作中结合速度和准确性，在数据库和模型选择方面保持灵活性'完全不符，未覆盖任何核心点，且存在与标准答案冲突的陈述（声称无相关内容），因此得分为0.00",
+        "answer_relevancy": "模型回答'No relevant context found for the query'未直接回答'LightRAG的设计理念是什么'这一问题的核心，而是表示未找到相关内容，属于完全无关的冗余信息，因此得分为0.00",
+        "context_recall": "标准答案包含3个核心点：易用性优先、检索速度与准确性结合、数据库和模型选择灵活性。模型回答未覆盖其中任何一个核心点，所有核心点均未提及，因此得分为0.00",
+        "context_precision": "模型回答未引用任何文档内容，未优先使用指定文档'03_lightrag_improvements.md'，也未匹配提供的参考文档，因此得分为0.00"
+      },
+      "user_input": "LightRAG的设计理念是什么？",
+      "retrieved_contexts": []
+    }
+  ],
+  "averages": {
+    "faithfulness": 0.0,
+    "answer_relevancy": 0.0,
+    "context_recall": 0.0,
+    "context_precision": 0.0
+  },
+  "total_count": 10,
+  "results_file": "/Users/wangzihao/PycharmProjects/new/eval_accuracy_citation/eval_results_20251212_205503.json"
+}

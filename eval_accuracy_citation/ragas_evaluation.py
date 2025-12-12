@@ -1,6 +1,7 @@
 import os
 import json
 import logging
+import numpy as np
 from typing import Dict, List, Optional, Any
 
 # Import configuration from settings.py
@@ -33,6 +34,52 @@ logging.basicConfig(
     ]
 )
 logger = logging.getLogger(__name__)
+
+def convert_numpy_types(obj):
+    """
+    将numpy类型转换为Python原生类型，以便JSON序列化
+    支持所有numpy数值类型和嵌套结构
+    """
+    if obj is None:
+        return None
+    
+    # numpy数组
+    if isinstance(obj, np.ndarray):
+        return obj.tolist()
+    
+    # numpy标量类型
+    if isinstance(obj, (np.floating, np.float32, np.float64)):
+        return float(obj)
+    
+    if isinstance(obj, (np.integer, np.int8, np.int16, np.int32, np.int64, 
+                       np.uint8, np.uint16, np.uint32, np.uint64)):
+        return int(obj)
+    
+    if isinstance(obj, np.bool_):
+        return bool(obj)
+    
+    if isinstance(obj, (np.complexfloating, np.complex64, np.complex128)):
+        return str(complex(obj))  # 转换为字符串以便JSON序列化
+    
+    # 递归处理容器类型
+    if isinstance(obj, dict):
+        return {k: convert_numpy_types(v) for k, v in obj.items()}
+    
+    if isinstance(obj, (list, tuple)):
+        converted = [convert_numpy_types(item) for item in obj]
+        return converted if isinstance(obj, list) else tuple(converted)
+    
+    if isinstance(obj, set):
+        return {convert_numpy_types(item) for item in obj}
+    
+    # 处理numpy对象数组
+    if hasattr(obj, 'dtype') and hasattr(obj, 'tolist'):
+        try:
+            return obj.tolist()
+        except:
+            return str(obj)
+    
+    return obj
 
 
 class RAGASEvaluator:
@@ -820,6 +867,9 @@ def score_with_llm(question, golden_answer, model_answer, doc_hint, references=N
             
             # Parse the clean JSON content
             score_result = json.loads(content.strip())
+            
+            # 转换所有可能的numpy类型
+            score_result = convert_numpy_types(score_result)
         else:
             raise Exception(f"Unexpected response format: {type(response)}")
             
@@ -834,8 +884,13 @@ def score_with_llm(question, golden_answer, model_answer, doc_hint, references=N
     for dim, config in SCORING_DIMENSIONS.items():
         score = score_result[dim]
         min_score, max_score = config["score_range"]
+        # 转换numpy类型以确保比较正确
+        if isinstance(score, (np.floating, np.float32, np.float64)):
+            score = float(score)
         if not (min_score <= score <= max_score):
             raise ValueError(f"{dim} score {score} is out of range [{min_score}, {max_score}]")
+        # 确保score_result中存储的是Python原生类型
+        score_result[dim] = score
     
     return score_result
 
@@ -865,7 +920,14 @@ def evaluate_qa(params, question_param, model_answer, references=None):
     )
     
     # 返回格式化的评分结果
-    formatted_result = f"{RESULT_PREFIX}\n{json.dumps(score_result, ensure_ascii=False, indent=2)}"
+    try:
+        # 转换numpy类型以确保JSON序列化成功
+        safe_score_result = convert_numpy_types(score_result)
+        formatted_result = f"{RESULT_PREFIX}\n{json.dumps(safe_score_result, ensure_ascii=False, indent=2)}"
+    except Exception as e:
+        logger.warning(f"评分结果被numpy类型转换警告: {str(e)}")
+        # 如果转换失败，使用更激进的方法
+        formatted_result = f"{RESULT_PREFIX}\n{json.dumps(score_result, ensure_ascii=False, indent=2, default=str)}"
     return formatted_result
 
 

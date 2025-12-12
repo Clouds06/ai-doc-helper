@@ -65,7 +65,7 @@ def main():
     主函数
     """
     # 默认文件路径
-    default_file = "/Users/wangzihao/PycharmProjects/new/lightrag/evaluation/sample_documents/01_lightrag_overview.md"
+    default_file = "/Users/wangzihao/PycharmProjects/new/eval_accuracy_citation/EVAL.md"
 
     # 从命令行参数获取文件路径（如果提供）
     file_path = sys.argv[1] if len(sys.argv) > 1 else default_file

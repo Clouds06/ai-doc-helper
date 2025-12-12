@@ -1,0 +1,30 @@
+{
+  "detailed_results": [
+    {
+      "question": "LightRAG如何解决大型语言模型的幻觉问题？",
+      "answer": "No relevant context found for the query.",
+      "contexts": [],
+      "ground_truth": "通过将大型语言模型与外部知识检索相结合, 确保LLM输出基于实际文档, 提供上下文响应以显著减少幻觉",
+      "faithfulness": 0.0,
+      "answer_relevancy": 0.0,
+      "context_recall": 0.0,
+      "context_precision": 0.0,
+      "reasoning": {
+        "faithfulness": "模型回答'No relevant context found for the query'与标准答案'通过将大型语言模型与外部知识检索相结合-确保LLM输出基于实际文档-提供上下文响应以显著减少幻觉'完全不符，未覆盖任何核心要点，且存在与标准答案冲突的陈述（声称无相关内容），因此得0分",
+        "answer_relevancy": "模型回答'No relevant context found for the query'未直接回答'LightRAG如何解决大型语言模型的幻觉问题'这一核心问题，而是表示未找到相关内容，属于完全无关的回应，因此得0分",
+        "context_recall": "标准答案包含三个核心要点：1)结合外部知识检索 2)确保输出基于实际文档 3)提供上下文响应减少幻觉。模型回答未提及其中任何一个核心要点，完全遗漏所有内容，因此得0分",
+        "context_precision": "模型回答声称'No relevant context found'，但指定参考文档为01_lightrag_overview.md，这表明模型未能正确引用或利用指定文档。回答中未展示任何文档引用，也未优先使用指定文档，且内容与提供的参考文档不匹配，因此得0分"
+      },
+      "user_input": "LightRAG如何解决大型语言模型的幻觉问题？",
+      "retrieved_contexts": []
+    }
+  ],
+  "averages": {
+    "faithfulness": 0.0,
+    "answer_relevancy": 0.0,
+    "context_recall": 0.0,
+    "context_precision": 0.0
+  },
+  "total_count": 1,
+  "results_file": "/Users/wangzihao/PycharmProjects/new/eval_accuracy_citation/eval_results_20251212_211258.json"
+}
