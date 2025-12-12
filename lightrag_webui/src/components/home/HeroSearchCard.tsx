@@ -1,5 +1,5 @@
 import { useState, FormEvent, KeyboardEvent } from 'react'
-import { ImageIcon, FileText, Mic, Globe, ChevronDown, ArrowRight } from 'lucide-react'
+import { ImageIcon, FileText, Mic, ArrowRight } from 'lucide-react'
 import { useTypewriterLoop } from '@/hooks/useTypewriter'
 import { useUploadStore } from '@/hooks/useUploadStore'
 import { PLACEHOLDER_LOOP_WORDS } from '@/lib/constants'
@@ -27,7 +27,7 @@ const HomeUploadZone = () => {
     <div className="flex flex-col items-center justify-center border-b border-dashed border-gray-100 bg-gray-50/40 p-6">
       <button
         type="button"
-        onClick={openUploadModal}
+        onClick={() => openUploadModal()}
         aria-label="上传文件"
         className="group flex h-24 w-full flex-col items-center justify-center gap-2 rounded-xl border border-transparent bg-white shadow-sm transition-all hover:border-blue-200 hover:bg-blue-50/50"
       >
@@ -76,52 +76,47 @@ const HomeSearch = ({ onSearch, initialQuery = '' }: HomeSearchProps) => {
     }
   }
 
+  const handleInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setInput(e.target.value)
+    e.target.style.height = 'auto'
+    e.target.style.height = `${Math.min(Math.max(e.target.scrollHeight, 48), 200)}px`
+  }
+
   return (
     <div className="relative bg-white p-3">
       <form onSubmit={handleSubmit} className="relative z-10 w-full text-left">
-        <div className="relative">
-          <label htmlFor="hero-query" className="sr-only">
-            请输入你要查询的问题
-          </label>
-          <textarea
-            id="hero-query"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onFocus={() => {
-              setIsFocused(true)
-            }}
-            onBlur={() => {
-              if (!input) {
-                setIsFocused(false)
-              }
-            }}
-            onKeyDown={handleKeyDown}
-            rows={1}
-            className="h-12 w-full resize-none overflow-hidden bg-transparent px-4 py-3 align-top text-base text-gray-800 placeholder-transparent focus:outline-none"
-          />
-          {!input && (
-            <div className="pointer-events-none absolute inset-0 flex items-start px-4 py-3">
-              <span className="text-m whitespace-pre-wrap text-gray-600 transition-colors duration-300">
-                {placeholder}
-              </span>
-              {!isFocused && <span className="ml-0.5 animate-pulse text-gray-600">|</span>}
-            </div>
-          )}
-        </div>
-
-        <div className="mt-1 flex items-center justify-end border-t border-transparent pt-1 pr-2">
-          <div className="flex items-center gap-2">
-            {/* TODO: "联网搜索"按钮为未来功能占位，可能会被移除或修改，保留以便后续实现 */}
-            <button
-              type="button"
-              aria-label="联网搜索"
-              className="flex items-center gap-1 text-xs text-gray-500 transition-colors hover:text-gray-800"
-            >
-              <Globe className="h-3 w-3" />
-              联网
-              <ChevronDown className="h-2.5 w-2.5" />
-            </button>
-
+        <div className="relative flex items-end gap-2">
+          <div className="relative flex-1">
+            <label htmlFor="hero-query" className="sr-only">
+              请输入你要查询的问题
+            </label>
+            <textarea
+              id="hero-query"
+              value={input}
+              onChange={handleInput}
+              onFocus={() => {
+                setIsFocused(true)
+              }}
+              onBlur={() => {
+                if (!input) {
+                  setIsFocused(false)
+                }
+              }}
+              onKeyDown={handleKeyDown}
+              rows={1}
+              style={{ minHeight: '48px', maxHeight: '200px' }}
+              className="scrollbar-none w-full resize-none overflow-y-auto bg-transparent px-4 py-3 align-top text-base text-gray-600 placeholder-transparent focus:outline-none"
+            />
+            {!input && (
+              <div className="pointer-events-none absolute inset-0 flex items-start px-4 py-3">
+                <span className="text-m whitespace-pre-wrap text-gray-400 transition-colors duration-300">
+                  {placeholder}
+                </span>
+                {!isFocused && <span className="ml-0.5 animate-pulse text-gray-600">|</span>}
+              </div>
+            )}
+          </div>
+          <div className="flex items-end pb-2">
             <button
               type="submit"
               disabled={!hasText}
