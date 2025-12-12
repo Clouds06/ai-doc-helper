@@ -47,6 +47,9 @@ jobs:
       - name: Lint check
         run: bun run lint
 
+      - name: Run Unit Tests
+        run: bun test
+
       - name: Build
         run: bun run build
         env:
