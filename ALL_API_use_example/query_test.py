@@ -1,49 +1,41 @@
-# LightRAG API调用示例
+# LightRAG API调用示例（前端模式）
 import requests
 import json
 
 
-def get_token(base_url, username, password):
+def get_api_key():
     """
-    获取认证令牌的函数
-    如果API未启用认证，可以跳过此步骤
+    获取API密钥的函数
+    如果API未启用认证，可以返回None
     """
-    try:
-        response = requests.post(
-            f"{base_url}/login", json={"username": username, "password": password}
-        )
-        if response.status_code == 200:
-            return response.json()["access_token"]
-        else:
-            print(f"获取令牌失败: {response.status_code} - {response.text}")
-            return None
-    except Exception as e:
-        print(f"获取令牌时发生错误: {str(e)}")
-        # 返回None表示不使用认证
-        return None
+    # 这里可以从配置文件、环境变量或用户输入获取API密钥
+    # 例如: return os.environ.get('LIGHTRAG_API_KEY')
+    return None  # 如果不需要认证，保持为None
 
 
 def main():
     # API服务器地址
     base_url = "http://localhost:9621"
 
-    # 可选：获取认证令牌
-    # token = get_token(base_url, "your_username", "your_password")
-    token = None  # 如果不需要认证，保持为None
+    # 获取API密钥
+    api_key = get_api_key()
 
-    # 根据是否有token设置headers
-    headers = {}
-    if token:
-        headers["Authorization"] = f"Bearer {token}"
+    # 设置headers
+    headers = {
+        "Content-Type": "application/json"
+    }
+    if api_key:
+        headers["X-API-Key"] = api_key
 
     print("=== 测试非流式查询 ===")
-    # 非流式查询示例
+    # 非流式查询示例 - 匹配前端模式
     data = {
-        "query": "how does LightRAG solve the hallucination problem in large language models",
-        "mode": "mix",  # 查询模式
-        "include_references": True,  # 是否包含引用源
-        "include_chunk_content": False,  # 是否包含具体内容
-        "response_type": "Multiple Paragraphs",  # 响应格式
+        "query": "What is RAGAS",
+        "mode": "hybrid",  # 前端使用的默认模式
+        "history": [],  # 对话历史，前端使用history而不是conversation_history
+        "include_references": True,
+        "include_chunk_content": True,
+        "stream": False
     }
 
     try:
@@ -52,7 +44,7 @@ def main():
         if response.status_code == 200:
             result = response.json()
             print("\n回答:", result["response"])
-            if result["references"]:
+            if result.get("references", []):
                 print("\n引用源:")
                 for ref in result["references"]:
                     print(f"- {ref.get('file_path', '未知文件')}")
@@ -64,12 +56,17 @@ def main():
         print(f"请求发生错误: {str(e)}")
 
     print("\n\n=== 测试流式查询 ===")
-    # 流式查询示例
+    # 流式查询示例 - 匹配前端模式
     stream_data = {
-        "query": "详细解释人工智能原理",
-        "mode": "hybrid",
-        "stream": True,
+        "query": "What is RAGAS",
+        "mode": "hybrid",  # 前端使用的默认模式
+        "history": [],  # 对话历史，前端使用history而不是conversation_history
         "include_references": True,
+        "include_chunk_content": True,
+        "system_prompt": None,  # 系统提示
+        "chunk_top_k": None,  # 检索文本块数量
+        "temperature": None,  # LLM生成随机性
+        "stream": True
     }
 
     try:
@@ -86,14 +83,16 @@ def main():
                 if line:
                     try:
                         data = json.loads(line.decode("utf-8"))
-                        if "references" in data:
+                        if "error" in data:
+                            print(f"\n错误: {data['error']}")
+                        elif "references" in data and data.get("references", []):
                             print("\n引用源:")
                             for ref in data["references"]:
                                 print(f"- {ref.get('file_path', '未知文件')}")
+                        elif "query_id" in data:
+                            print(f"\n查询ID: {data['query_id']}")
                         elif "response" in data:
                             print(data["response"], end="", flush=True)
-                        elif "error" in data:
-                            print(f"\n错误: {data['error']}")
                     except json.JSONDecodeError:
                         print(f"\n解析错误，无效的JSON: {line}")
             print("\n\n流式响应结束")

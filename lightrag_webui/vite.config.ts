@@ -54,13 +54,14 @@ export default defineConfig(({ mode }) => {
                 (path) => path.replace(/^\/api/, '') :
                 endpoint === '/docs' || endpoint === '/redoc' || endpoint === '/openapi.json' || endpoint === '/static' ?
                   (path) => path : undefined
-            }
+            },
           ])
         ) : {},
       watch: {
         usePolling: true,
         interval: 100,
       },
+
     },
   }
 })

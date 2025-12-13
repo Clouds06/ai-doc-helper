@@ -4,6 +4,7 @@ import Dropzone, { FileRejection } from 'react-dropzone';
 
 interface InnerFileUploaderProps {
   disabled?: boolean;
+  uploading?: boolean;
   maxSize?: number;
   maxFileCount?: number;
   multiple?: boolean;
@@ -17,6 +18,7 @@ interface InnerFileUploaderProps {
 
 export const InnerFileUploader = ({
   disabled = false,
+  uploading = false,
   maxSize = 200 * 1024 * 1024,
   maxFileCount = Infinity,
   multiple = true,
@@ -116,7 +118,7 @@ export const InnerFileUploader = ({
               <button
                 className="ml-3 p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors"
                 onClick={() => removeFile(idx)}
-                disabled={disabled}
+                disabled={uploading}
               >
                 <X className="w-4 h-4" />
               </button>

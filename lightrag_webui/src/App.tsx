@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Routes, Route, useNavigate } from 'react-router-dom';
+import { Toaster } from 'sonner';
 import { Toast } from './components/common/Toast';
 import { SettingsModal } from './components/settings/SettingsModal';
 import { UploadModal } from './components/common/UploadModal';
@@ -8,7 +9,6 @@ import { HomeView } from './views/HomeView';
 import { ChatView } from './views/ChatView';
 import { DocumentsView } from './views/DocumentsView';
 import { useRagStore } from './hooks/useRagStore';
-import { useUploadStore } from '@/hooks/useUploadStore';
 import { sanitizeQuery } from './lib/utils';
 
 export default function App() {
@@ -26,7 +26,6 @@ export default function App() {
   });
 
   const setPendingQuery = useRagStore((s) => s.setPendingQuery);
-  const openUploadModal = useUploadStore((s) => s.open);
 
   const showToast = (
     message: string,
@@ -60,6 +59,8 @@ export default function App() {
 
   return (
     <div className="flex flex-col h-screen bg-slate-50 font-sans text-slate-900">
+      <Toaster position="top-center" richColors />
+
       {toast.show && (
         <Toast
           message={toast.message}
@@ -80,7 +81,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<HomeView onSearch={handleSearchToChat} />} />
           <Route path="/chat" element={<ChatView />} />
-          <Route path="/documents" element={<DocumentsView onUpload={openUploadModal} />} />
+          <Route path="/documents" element={<DocumentsView />} />
         </Routes>
       </main>
 

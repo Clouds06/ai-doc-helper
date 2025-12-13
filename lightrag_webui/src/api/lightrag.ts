@@ -3,6 +3,12 @@ import { backendBaseUrl } from '../lib/constants'
 import { useSettingsStore } from '../stores/settings'
 import { errorMessage } from '@/lib/utils'
 import { EvalSample, RagEvalResult } from '@/types'
+import { mockRagEvalResult } from '@/data/mock'
+import {
+  DocumentsRequest,
+  PaginatedDocsResponse,
+  DeleteDocResponse,
+} from '../types'
 
 // Types
 export type LightragStatus = {
@@ -159,7 +165,7 @@ axiosInstance.interceptors.response.use(
         // navigationService.navigateToLogin();
 
         // return a reject Promise
-        return Promise.reject(new Error('Authentication required'));
+        return Promise.reject(new Error('Authentication required'))
       }
       throw new Error(
         `${error.response.status} ${error.response.statusText}\n${JSON.stringify(
@@ -209,33 +215,26 @@ export const checkHealth = async (): Promise<
   }
 }
 
+export const USE_MOCK_DATA = true
 export async function runRagEvaluation(): Promise<RagEvalResult> {
-  const res = await axiosInstance.post(
-    '/eval/run',
-    null,
-    {
-      params: {
-        eval_dataset_path: '/mnt/d/ai-doc-helper/eval_accuracy_citation/EVAL.jsonl',
-        input_docs_dir: '/mnt/d/ai-doc-helper/lightrag/evaluation/sample_documents',
-        output_format: 'json',
-        skip_ingestion: false,
-      },
+  let res = undefined
+  if (!USE_MOCK_DATA)
+    res = await axiosInstance.post('/eval/do_eval', null, {
       responseType: 'json',
-      timeout: 480000, // 8 minutes
-    }
-  )
+      timeout: 480000 // 8 minutes
+    })
 
-  const body = res.data
+  const body = USE_MOCK_DATA ? mockRagEvalResult : res ? res.data : undefined
 
   const rawSamples = Array.isArray(body)
     ? body
     : Array.isArray(body.detailed_results)
-    ? body.detailed_results
-    : Array.isArray(body.results)
-    ? body.results
-    : Array.isArray(body.items)
-    ? body.items
-    : []
+      ? body.detailed_results
+      : Array.isArray(body.results)
+        ? body.results
+        : Array.isArray(body.items)
+          ? body.items
+          : []
 
   const samples: EvalSample[] = rawSamples.map((s: any) => ({
     question: s.question ?? s.user_input ?? '',
@@ -245,9 +244,10 @@ export async function runRagEvaluation(): Promise<RagEvalResult> {
       faithfulness: typeof s.faithfulness === 'number' ? s.faithfulness : undefined,
       answer_relevancy: typeof s.answer_relevancy === 'number' ? s.answer_relevancy : undefined,
       context_recall: typeof s.context_recall === 'number' ? s.context_recall : undefined,
-      context_precision: typeof s.context_precision === 'number' ? s.context_precision : undefined,
+      context_precision: typeof s.context_precision === 'number' ? s.context_precision : undefined
     },
-    contexts: s.contexts ?? s.used_contexts ?? '',
+    contexts: s.contexts ?? '',
+    retrieved_context: s.retrieved_contexts ?? ''
   }))
 
   return {
@@ -256,9 +256,33 @@ export async function runRagEvaluation(): Promise<RagEvalResult> {
       faithfulness: undefined,
       answer_relevancy: undefined,
       context_recall: undefined,
-      context_precision: undefined,
+      context_precision: undefined
     },
     results_file: body.results_file ?? body.resultsFile,
-    samples,
+    samples
   }
+}
+
+/**
+ * 获取分页的文档列表
+ * 对应后端: POST /documents/paginated
+ */
+export const getDocuments = async (params: DocumentsRequest): Promise<PaginatedDocsResponse> => {
+  const response = await axiosInstance.post('/documents/paginated', params)
+  return response.data
+}
+
+/**
+ * 删除文档
+ * 对应后端: DELETE /documents/delete_document
+ */
+export const deleteDocument = async (docId: string): Promise<DeleteDocResponse> => {
+  const response = await axiosInstance.delete('/documents/delete_document', {
+    data: {
+      doc_ids: [docId],
+      delete_file: true,      // 同时删除源文件
+      delete_llm_cache: true  // 同时清理相关的 LLM 缓存
+    }
+  })
+  return response.data
 }

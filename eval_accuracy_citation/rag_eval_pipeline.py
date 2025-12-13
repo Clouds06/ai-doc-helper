@@ -2,6 +2,7 @@ import sys
 import os
 import json
 from datetime import datetime
+import numpy as np
 
 # 添加当前目录到Python路径
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -13,6 +14,52 @@ from ragas_evaluation import evaluate_qa
 
 # 从settings.py导入配置
 from settings import EVAL_JSONL_PATH, RESULT_PREFIX, OUTPUT_DIR
+
+def convert_numpy_types(obj):
+    """
+    将numpy类型转换为Python原生类型，以便JSON序列化
+    支持所有numpy数值类型和嵌套结构
+    """
+    if obj is None:
+        return None
+    
+    # numpy数组
+    if isinstance(obj, np.ndarray):
+        return obj.tolist()
+    
+    # numpy标量类型
+    if isinstance(obj, (np.floating, np.float32, np.float64)):
+        return float(obj)
+    
+    if isinstance(obj, (np.integer, np.int8, np.int16, np.int32, np.int64, 
+                       np.uint8, np.uint16, np.uint32, np.uint64)):
+        return int(obj)
+    
+    if isinstance(obj, np.bool_):
+        return bool(obj)
+    
+    if isinstance(obj, (np.complexfloating, np.complex64, np.complex128)):
+        return str(complex(obj))  # 转换为字符串以便JSON序列化
+    
+    # 递归处理容器类型
+    if isinstance(obj, dict):
+        return {k: convert_numpy_types(v) for k, v in obj.items()}
+    
+    if isinstance(obj, (list, tuple)):
+        converted = [convert_numpy_types(item) for item in obj]
+        return converted if isinstance(obj, list) else tuple(converted)
+    
+    if isinstance(obj, set):
+        return {convert_numpy_types(item) for item in obj}
+    
+    # 处理numpy对象数组
+    if hasattr(obj, 'dtype') and hasattr(obj, 'tolist'):
+        try:
+            return obj.tolist()
+        except:
+            return str(obj)
+    
+    return obj
 
 # -------------------------- Configuration Constants --------------------------
 LIGHTRAG_SERVER_URL = "http://localhost:9621"
@@ -107,11 +154,11 @@ async def run_eval_pipeline(line_number=None, output_file=None, rag=None):
                 "answer": response_content,
                 "contexts": contexts,
                 "ground_truth": ', '.join(question_data['gold']),
-                "faithfulness": eval_result.get("faithfulness", 0.0),
-                "answer_relevancy": eval_result.get("answer_relevancy", 0.0),
-                "context_recall": eval_result.get("context_recall", 0.0),
-                "context_precision": eval_result.get("context_precision", 0.0),
-                "reasoning": eval_result.get("reasoning", {}),
+                "faithfulness": float(eval_result.get("faithfulness", 0.0)),
+                "answer_relevancy": float(eval_result.get("answer_relevancy", 0.0)),
+                "context_recall": float(eval_result.get("context_recall", 0.0)),
+                "context_precision": float(eval_result.get("context_precision", 0.0)),
+                "reasoning": convert_numpy_types(eval_result.get("reasoning", {})),
                 "user_input": question_data['q'],
                 "retrieved_contexts": retrieved_contexts
             }
@@ -120,7 +167,14 @@ async def run_eval_pipeline(line_number=None, output_file=None, rag=None):
             
             # 8. 输出评测结果
             print(f"\n4. 评测结果:")
-            print(json.dumps(eval_result, ensure_ascii=False, indent=2))
+            try:
+                # 转换numpy类型以确保JSON序列化成功
+                safe_eval_result = convert_numpy_types(eval_result)
+                print(json.dumps(safe_eval_result, ensure_ascii=False, indent=2))
+            except Exception as e:
+                print(f"评测结果序列化警告: {str(e)}")
+                # 如果转换失败，使用更激进的方法
+                print(json.dumps(eval_result, ensure_ascii=False, indent=2, default=str))
         
         # 9. 计算平均得分
         averages = {
@@ -164,8 +218,16 @@ async def run_eval_pipeline(line_number=None, output_file=None, rag=None):
         }
         
         # 12. 保存结果到JSON文件
-        with open(save_path, 'w', encoding='utf-8') as f:
-            json.dump(final_result, f, ensure_ascii=False, indent=2)
+        try:
+            # 转换numpy类型以确保JSON序列化成功
+            safe_final_result = convert_numpy_types(final_result)
+            with open(save_path, 'w', encoding='utf-8') as f:
+                json.dump(safe_final_result, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            print(f"最终结果被numpy类型转换警告: {str(e)}")
+            # 如果转换失败，使用更激进的方法
+            with open(save_path, 'w', encoding='utf-8') as f:
+                json.dump(final_result, f, ensure_ascii=False, indent=2, default=str)
         
         print(f"\n=== 评测结果已保存到文件 ===")
         print(f"   文件路径: {save_path}")

@@ -431,7 +431,11 @@ def create_app(args):
             )
         else:
             # For other endpoints, return the default FastAPI validation error
-            return JSONResponse(status_code=422, content={"detail": exc.errors()})
+            errors = exc.errors()
+            # Convert non-serializable objects to strings
+            import json
+            serializable_errors = json.loads(json.dumps(errors, default=str))
+            return JSONResponse(status_code=422, content={"detail": serializable_errors})
 
     def get_cors_origins():
         """Get allowed origins from global_args
@@ -995,17 +999,21 @@ def create_app(args):
     # Initialize RAG with unified configuration
     try:
         from typing import List
-        
+
         # Create a simple custom tokenizer to avoid tiktoken network dependency
         class SimpleTokenizer:
             def encode(self, content: str) -> List[int]:
-                return list(range(len(content.split())))
+                # 使用字符的 Unicode 编码，保证无损
+                return [ord(c) for c in content]
+
             def decode(self, tokens: List[int]) -> str:
-                return ' '.join(['token' + str(t) for t in tokens])
-        
+                # 将 Unicode 编码还原为字符
+                return "".join([chr(t) for t in tokens])
+
         from lightrag.utils import Tokenizer
+
         simple_tokenizer = Tokenizer("simple", SimpleTokenizer())
-        
+
         rag = LightRAG(
             tokenizer=simple_tokenizer,
             working_dir=args.working_dir,

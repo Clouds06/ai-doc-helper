@@ -382,7 +382,7 @@ async def _handle_single_entity_extraction(
     timestamp: int,
     file_path: str = "unknown_source",
 ):
-    if len(record_attributes) != 4 or "entity" not in record_attributes[0]:
+    if len(record_attributes) != 4 or "entity" not in record_attributes[0].lower():
         if len(record_attributes) > 1 and "entity" in record_attributes[0]:
             logger.warning(
                 f"{chunk_key}: LLM output format error; found {len(record_attributes)}/4 feilds on ENTITY `{record_attributes[1]}` @ `{record_attributes[2] if len(record_attributes) > 2 else 'N/A'}`"
@@ -455,7 +455,7 @@ async def _handle_single_relationship_extraction(
     file_path: str = "unknown_source",
 ):
     if (
-        len(record_attributes) != 5 or "relation" not in record_attributes[0]
+        len(record_attributes) != 5 or "relation" not in record_attributes[0].lower()
     ):  # treat "relationship" and "relation" interchangeable
         if len(record_attributes) > 1 and "relation" in record_attributes[0]:
             logger.warning(
@@ -950,10 +950,10 @@ async def _process_extraction_result(
             record, [f"{tuple_delimiter}entity{tuple_delimiter}"]
         )
         for entity_record in entity_records:
-            if not entity_record.startswith("entity") and not entity_record.startswith(
-                "relation"
-            ):
-                entity_record = f"entity<|{entity_record}"
+            if not entity_record.lower().startswith(
+                "entity"
+            ) and not entity_record.lower().startswith("relation"):
+                entity_record = f"entity{tuple_delimiter}{entity_record}"
             entity_relation_records = split_string_by_multi_markers(
                 # treat "relationship" and "relation" interchangeable
                 entity_record,
