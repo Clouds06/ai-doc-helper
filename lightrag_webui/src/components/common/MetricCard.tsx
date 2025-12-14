@@ -15,7 +15,7 @@ export const MetricCard = ({ metricKey, value }: MetricCardProps) => {
   return (
     <div className="group relative flex flex-1 items-center justify-between rounded-xl border border-gray-100 bg-white p-3.5 transition-all hover:shadow-xs">
       <div className="relative mb-1 flex items-center gap-1">
-        <Icon className={`h-5 w-5 text-${def.color}-500`} />
+        <Icon className={`h-5 w-5 text-${def.color}-600`} />
         <span className={'text-[15px] font-medium'}>{def.label}</span>
         <div className="group/tooltip relative">
           <HelpCircle
