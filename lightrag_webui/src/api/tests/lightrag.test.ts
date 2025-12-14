@@ -1,6 +1,7 @@
 import { describe, it, expect, mock, beforeEach } from 'bun:test';
 
 // --- 1. 先定义 Mock (在业务代码加载前拦截) ---
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const mockPost = mock((..._args: any[]) => 
   Promise.resolve({ 
     data: { status: 'success', message: 'ok' } 
