@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, mock, afterEach } from 'bun:test';
-import { GlobalRegistrator } from "@happy-dom/global-registrator";
+import { GlobalRegistrator } from '@happy-dom/global-registrator';
 
 GlobalRegistrator.register();
 
@@ -78,7 +78,7 @@ describe('UploadModal Component', () => {
 
     // 验证 API 调用和回调
     await waitFor(() => {
-        expect(onCompleteMock).toHaveBeenCalled();
+      expect(onCompleteMock).toHaveBeenCalled();
     });
   });
 
@@ -106,7 +106,7 @@ describe('UploadModal Component', () => {
 
     // 4. 验证 store 中的 onSuccess 是否被调用
     await waitFor(() => {
-        expect(onSuccessMock).toHaveBeenCalled();
+      expect(onSuccessMock).toHaveBeenCalled();
     });
   });
 });
