@@ -326,7 +326,7 @@ const PromptPanel: React.FC<PromptPanelProps> = ({ value, onChange }) => {
           className="w-full min-h-[140px] p-4 text-sm leading-relaxed text-gray-700 bg-transparent resize-none focus:outline-none"
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          placeholder="在此输入自定义的 System Prompt..."
+          placeholder="在此输入自定义的系统提示词..."
         />
 
         {/* 底部工具栏 */}
@@ -349,18 +349,18 @@ const PromptPanel: React.FC<PromptPanelProps> = ({ value, onChange }) => {
       </div>
 
       {isNameModalOpen && (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-900/40">
+        <div className="fixed inset-0 z-120 flex items-center justify-center bg-slate-900/40">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm p-5">
             <h3 className="text-sm font-semibold text-gray-900">
               保存为新模版
             </h3>
             <p className="text-xs text-gray-500 mt-1">
-              给当前提示词模板起一个名称，方便复用。
+              为当前模板命名（请勿重名）
             </p>
 
             <input
               className="mt-4 w-full px-3 py-2 text-sm border border-gray-200 rounded-lg outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20"
-              placeholder="例如：法律问答（严谨版）"
+              placeholder="例如：法律问答"
               value={nameInput}
               onChange={(e) => {
                 setNameInput(e.target.value);
