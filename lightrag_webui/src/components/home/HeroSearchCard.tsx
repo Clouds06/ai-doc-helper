@@ -27,7 +27,7 @@ const HomeUploadZone = () => {
     <div className="flex flex-col items-center justify-center border-b border-dashed border-gray-100 bg-gray-50/40 p-6">
       <button
         type="button"
-        onClick={openUploadModal}
+        onClick={() => openUploadModal()}
         aria-label="上传文件"
         className="group flex h-24 w-full flex-col items-center justify-center gap-2 rounded-xl border border-transparent bg-white shadow-sm transition-all hover:border-blue-200 hover:bg-blue-50/50"
       >
