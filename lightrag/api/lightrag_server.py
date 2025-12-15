@@ -434,8 +434,11 @@ def create_app(args):
             errors = exc.errors()
             # Convert non-serializable objects to strings
             import json
+
             serializable_errors = json.loads(json.dumps(errors, default=str))
-            return JSONResponse(status_code=422, content={"detail": serializable_errors})
+            return JSONResponse(
+                status_code=422, content={"detail": serializable_errors}
+            )
 
     def get_cors_origins():
         """Get allowed origins from global_args
@@ -1234,7 +1237,21 @@ def create_app(args):
     # Custom StaticFiles class for smart caching
     class SmartStaticFiles(StaticFiles):  # Renamed from NoCacheStaticFiles
         async def get_response(self, path: str, scope):
-            response = await super().get_response(path, scope)
+            try:
+                # 尝试获取静态文件
+                response = await super().get_response(path, scope)
+            except HTTPException as e:
+                # 如果是 404 错误
+                if e.status_code == 404:
+                    # 检查路径：如果不是 assets 资源且看起来不像文件（没有扩展名）
+                    # 说明这可能是一个前端路由（如 /chat, /documents），需要返回 index.html
+                    if not path.startswith("assets/") and "." not in os.path.basename(
+                        path
+                    ):
+                        # Fallback 到 index.html
+                        return await super().get_response("index.html", scope)
+                # 其他错误或真正的 404 (如 assets/missing.js) 则抛出
+                raise e
 
             is_html = path.endswith(".html") or response.media_type == "text/html"
 
