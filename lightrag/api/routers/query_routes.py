@@ -905,19 +905,64 @@ def create_query_routes(rag, api_key: Optional[str] = None, top_k: int = 60):
     @router.post("/feedback", dependencies=[Depends(combined_auth)])
     async def submit_feedback_endpoint(request: FeedbackRequest):
         """
-        提交用户对检索结果的反馈 (点赞/点踩)。
-        这将影响后续的检索 Prompt 优化。
+        提交用户对检索结果的反馈 (点赞/点踩)，这将影响后续的检索 Prompt 优化。
+        采用"静默清洗"策略：
+        1. 包含恶意关键词的评论会被清空，但保留点赞/点踩状态。
+        2. 过长的评论会被截断。
         """
         try:
+            safe_comment = request.comment
+
+            # 关键词黑名单
+            blacklist = [
+                "ignore previous",
+                "ignore all",
+                "system prompt",
+                "ignore instructions",
+                "忽略之前",
+                "忽略所有",
+                "系统提示词",
+                "系统指令",
+                "forget all",
+            ]
+
+            if safe_comment:
+                # 1. 长度截断 (静默处理，防止缓冲区溢出或垃圾数据)
+                if len(safe_comment) > 500:
+                    logger.warning(
+                        f"Feedback comment too long (truncated). QueryID: {request.query_id}"
+                    )
+                    safe_comment = safe_comment[:500]
+
+                # 2. 注入检测 (静默丢弃)
+                lower_comment = safe_comment.lower()
+                for keyword in blacklist:
+                    if keyword in lower_comment:
+                        # 记录警报日志，供后台审计
+                        logger.warning(
+                            f"SECURITY: Potential prompt injection detected in feedback. "
+                            f"QueryID: {request.query_id}. "
+                            f"Action: Comment discarded. "
+                            f"Content snippet: {safe_comment[:100]}..."
+                        )
+                        # 将评论置为 None，视为无评论，但程序继续执行
+                        safe_comment = None
+                        break
+
             feedback_data = {
                 "feedback_type": request.feedback_type,
-                "comment": request.comment,
+                "comment": safe_comment,
                 "query": request.original_query,
                 "response": request.original_response,
                 "created_at": datetime.now(timezone.utc).isoformat(),
             }
 
-            await rag.submit_feedback(request.query_id, feedback_data)
+            if hasattr(rag, "submit_feedback"):
+                await rag.submit_feedback(request.query_id, feedback_data)
+            else:
+                logger.warning(
+                    "rag.submit_feedback method not found, skipping storage."
+                )
 
             return {"status": "success", "message": "Feedback received"}
         except Exception as e:
