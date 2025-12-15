@@ -46,12 +46,12 @@ export default defineConfig(({ mode }) => {
       proxy:
         env.VITE_API_PROXY === 'true' && env.VITE_API_ENDPOINTS
           ? Object.fromEntries(
-              env.VITE_API_ENDPOINTS.split(',').map((endpoint) => [
-                endpoint,
-                {
-                  target: env.VITE_BACKEND_URL || 'http://localhost:9621',
-                  changeOrigin: true,
-                  rewrite:
+            env.VITE_API_ENDPOINTS.split(',').map((endpoint) => [
+              endpoint,
+              {
+                target: env.VITE_BACKEND_URL || 'http://localhost:9621',
+                changeOrigin: true,
+                rewrite:
                     endpoint === '/api'
                       ? (path) => path.replace(/^\/api/, '')
                       : endpoint === '/docs' ||
@@ -60,9 +60,9 @@ export default defineConfig(({ mode }) => {
                           endpoint === '/static'
                         ? (path) => path
                         : undefined
-                }
-              ])
-            )
+              }
+            ])
+          )
           : {},
       watch: {
         usePolling: true,
