@@ -818,8 +818,18 @@ class LightRAG:
                 break
 
             f_type = item.get("feedback_type", "").lower()
-            comment = item.get("comment", "无评论")
+            raw_comment = item.get("comment", "无评论")
+            if raw_comment:
+                # 1. 替换 XML 标签字符，防止闭合标签攻击
+                # 2. 移除换行符，防止破坏 Prompt 结构
+                comment = (
+                    raw_comment.replace("<", "[").replace(">", "]").replace("\n", " ")
+                )
+            else:
+                comment = "无评论"
+
             q = item.get("query", "")
+            q = q.replace("<", "[").replace(">", "]").replace("\n", " ")
 
             if f_type == "dislike":
                 context_lines.append(
