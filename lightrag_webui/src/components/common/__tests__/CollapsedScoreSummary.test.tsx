@@ -1,18 +1,9 @@
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test'
+import { describe, test, expect } from 'bun:test'
 import { render } from '@testing-library/react'
-import { GlobalRegistrator } from '@happy-dom/global-registrator'
 import { CollapsedScoreSummary } from '../CollapesScoreSummary'
 import type { RagasMetrics } from '@/types'
 
 describe('CollapsedScoreSummary', () => {
-  beforeEach(() => {
-    GlobalRegistrator.register()
-  })
-
-  afterEach(() => {
-    GlobalRegistrator.unregister()
-  })
-
   describe('基本渲染', () => {
     test('应正确渲染所有指标', () => {
       const metrics: RagasMetrics = {

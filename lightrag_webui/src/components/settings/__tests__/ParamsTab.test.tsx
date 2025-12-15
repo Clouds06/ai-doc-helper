@@ -1,5 +1,4 @@
-import { describe, test, expect, beforeEach, afterEach, mock } from 'bun:test'
-import { GlobalRegistrator } from '@happy-dom/global-registrator'
+import { describe, test, expect, beforeEach, mock } from 'bun:test'
 import { render } from '@testing-library/react'
 import { ParamsTab } from '../ParamsTab'
 import type { SavedParamsSnapshot } from '../SettingsModal'
@@ -10,17 +9,12 @@ describe('ParamsTab', () => {
   let defaultParams: SavedParamsSnapshot
 
   beforeEach(() => {
-    GlobalRegistrator.register()
     mockOnSaveConfig = mock()
     defaultParams = {
       temperature: 0.7,
       chunkTopK: 20,
       systemPrompt: DEFAULT_SYSTEM_PROMPT
     }
-  })
-
-  afterEach(() => {
-    GlobalRegistrator.unregister()
   })
 
   describe('基本渲染', () => {

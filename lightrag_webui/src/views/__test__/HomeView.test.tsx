@@ -1,36 +1,60 @@
-import { describe, test, expect, beforeEach, afterEach, mock } from 'bun:test'
+import { describe, test, expect, beforeAll, afterAll, beforeEach, mock } from 'bun:test'
 import { render } from '@testing-library/react'
-import { GlobalRegistrator } from '@happy-dom/global-registrator'
-import { HomeView } from '../HomeView'
 
-mock.module('@/components/home/HeroSearchCard', () => ({
-  HeroSearchCard: ({ onSearch }: { onSearch: (query: string) => void }) => (
-    <div data-testid="hero-search-card">
-      <input
-        data-testid="search-input"
-        placeholder="搜索..."
-        onChange={(e) => {
-          if (e.target.value) onSearch(e.target.value)
-        }}
-      />
-    </div>
-  )
-}))
-
-mock.module('@/components/home/StaticOnboarding', () => ({
-  default: () => <div data-testid="static-onboarding">Static Onboarding</div>
-}))
+// 存储原始的模块工厂函数
+let originalHeroSearchCard: any
+let originalStaticOnboarding: any
 
 describe('HomeView', () => {
   let mockOnSearch: ReturnType<typeof mock>
+  let HomeView: any
 
-  beforeEach(() => {
-    GlobalRegistrator.register()
-    mockOnSearch = mock()
+  // 在所有测试之前设置 mock
+  beforeAll(async () => {
+    // 先导入真实组件以保存引用
+    const heroModule = await import('@/components/home/HeroSearchCard')
+    const onboardingModule = await import('@/components/home/StaticOnboarding')
+    originalHeroSearchCard = heroModule.HeroSearchCard
+    originalStaticOnboarding = onboardingModule.default
+
+    // 然后 mock 这些模块
+    mock.module('@/components/home/HeroSearchCard', () => ({
+      HeroSearchCard: ({ onSearch }: { onSearch: (query: string) => void }) => (
+        <div data-testid="hero-search-card">
+          <input
+            data-testid="search-input"
+            placeholder="搜索..."
+            onChange={(e) => {
+              if (e.target.value) onSearch(e.target.value)
+            }}
+          />
+        </div>
+      )
+    }))
+
+    mock.module('@/components/home/StaticOnboarding', () => ({
+      default: () => <div data-testid="static-onboarding">Static Onboarding</div>
+    }))
+
+    // 最后导入 HomeView（会使用 mock 的子组件）
+    const homeViewModule = await import('../HomeView')
+    HomeView = homeViewModule.HomeView
   })
 
-  afterEach(() => {
-    GlobalRegistrator.unregister()
+  // 测试完成后恢复原始模块
+  afterAll(() => {
+    // 恢复为真实组件
+    mock.module('@/components/home/HeroSearchCard', () => ({
+      HeroSearchCard: originalHeroSearchCard
+    }))
+
+    mock.module('@/components/home/StaticOnboarding', () => ({
+      default: originalStaticOnboarding
+    }))
+  })
+
+  beforeEach(() => {
+    mockOnSearch = mock()
   })
 
   describe('基本渲染', () => {

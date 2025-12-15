@@ -8,9 +8,9 @@
     "build": "bunx --bun vite build",
     "lint": "eslint .",
     "preview": "bunx --bun vite preview",
-    "test": "bun test",
-    "test:watch": "bun test --watch",
-    "test:coverage": "bun test --coverage",
+    "test": "bun test --preload ./src/test-setup.ts",
+    "test:watch": "bun test --watch --preload ./src/test-setup.ts",
+    "test:coverage": "bun test --coverage --preload ./src/test-setup.ts",
     "dev-no-bun": "vite",
     "build-no-bun": "vite build --emptyOutDir",
     "preview-no-bun": "vite preview"
@@ -99,7 +99,6 @@
     "@types/react-syntax-highlighter": "^15.5.13",
     "@types/seedrandom": "^3.0.8",
     "@vitejs/plugin-react-swc": "^3.11.0",
-    "@vitest/ui": "^4.0.15",
     "eslint": "^9.37.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-react": "^7.37.5",
@@ -114,8 +113,7 @@
     "tailwindcss-animate": "^1.0.7",
     "typescript": "~5.7.3",
     "typescript-eslint": "^8.46.0",
-    "vite": "^6.3.6",
-    "vitest": "^4.0.15"
+    "vite": "^6.3.6"
   }
 }
 

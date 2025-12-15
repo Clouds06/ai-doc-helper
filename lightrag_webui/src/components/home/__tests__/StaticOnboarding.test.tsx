@@ -1,6 +1,5 @@
-import { describe, it, expect, beforeEach, afterEach, mock } from 'bun:test'
+import { describe, it, expect, beforeEach, mock } from 'bun:test'
 import { render } from '@testing-library/react'
-import { GlobalRegistrator } from '@happy-dom/global-registrator'
 import StaticOnboarding from '../StaticOnboarding'
 
 describe('StaticOnboarding', () => {
@@ -8,8 +7,6 @@ describe('StaticOnboarding', () => {
   let localStorageMock: Record<string, string>
 
   beforeEach(() => {
-    GlobalRegistrator.register()
-
     mockOnToggle = mock()
     localStorageMock = {}
 
@@ -28,10 +25,6 @@ describe('StaticOnboarding', () => {
       },
       writable: true
     })
-  })
-
-  afterEach(() => {
-    GlobalRegistrator.unregister()
   })
 
   describe('基本渲染', () => {

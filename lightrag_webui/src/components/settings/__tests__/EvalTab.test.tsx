@@ -1,5 +1,4 @@
-import { describe, test, expect, beforeEach, afterEach, mock } from 'bun:test'
-import { GlobalRegistrator } from '@happy-dom/global-registrator'
+import { describe, test, expect, beforeEach, mock } from 'bun:test'
 import { render } from '@testing-library/react'
 import { EvalTab } from '../EvalTab'
 import type { EvalStatus } from '../../../types/index'
@@ -27,12 +26,7 @@ describe('EvalTab', () => {
   let mockOnStartEvaluation: ReturnType<typeof mock>
 
   beforeEach(() => {
-    GlobalRegistrator.register()
     mockOnStartEvaluation = mock()
-  })
-
-  afterEach(() => {
-    GlobalRegistrator.unregister()
   })
 
   describe('初始状态（未评测）', () => {

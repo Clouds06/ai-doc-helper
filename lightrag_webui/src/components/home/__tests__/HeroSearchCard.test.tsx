@@ -1,36 +1,53 @@
-import { describe, test, expect, beforeEach, afterEach, mock } from 'bun:test'
-import { GlobalRegistrator } from '@happy-dom/global-registrator'
+import { describe, test, expect, beforeAll, afterAll, beforeEach, mock } from 'bun:test'
 import { render } from '@testing-library/react'
-import { HeroSearchCard } from '../HeroSearchCard'
 
-mock.module('../../../hooks/useUploadStore', () => ({
-  useUploadStore: mock()
-}))
-
-mock.module('../../../hooks/useTypewriter', () => ({
-  useTypewriterLoop: mock(() => '这份财报的重点是什么？')
-}))
+// 保存原始模块
+let originalUseUploadStore: any
+let originalUseTypewriter: any
 
 describe('HeroSearchCard', () => {
   let mockOnSearch: ReturnType<typeof mock>
   let mockOpenUploadModal: ReturnType<typeof mock>
+  let HeroSearchCard: any
+
+  beforeAll(async () => {
+    // 保存原始模块
+    const uploadStoreModule = await import('../../../hooks/useUploadStore')
+    const typewriterModule = await import('../../../hooks/useTypewriter')
+    originalUseUploadStore = uploadStoreModule.useUploadStore
+    originalUseTypewriter = typewriterModule.useTypewriterLoop
+
+    // 导入组件（在 mock 之后）
+    const heroModule = await import('../HeroSearchCard')
+    HeroSearchCard = heroModule.HeroSearchCard
+  })
+
+  afterAll(() => {
+    // 恢复原始模块
+    mock.module('../../../hooks/useUploadStore', () => ({
+      useUploadStore: originalUseUploadStore
+    }))
+
+    mock.module('../../../hooks/useTypewriter', () => ({
+      useTypewriterLoop: originalUseTypewriter
+    }))
+  })
 
   beforeEach(() => {
-    GlobalRegistrator.register()
-
     mockOnSearch = mock()
     mockOpenUploadModal = mock()
 
-    mock.module('../../../../hooks/useUploadStore', () => ({
+    // 在每个测试前设置 mock
+    mock.module('../../../hooks/useUploadStore', () => ({
       useUploadStore: (selector: any) => {
         const store = { openUploadModal: mockOpenUploadModal }
         return selector ? selector(store) : store
       }
     }))
-  })
 
-  afterEach(() => {
-    GlobalRegistrator.unregister()
+    mock.module('../../../hooks/useTypewriter', () => ({
+      useTypewriterLoop: mock(() => '这份财报的重点是什么？')
+    }))
   })
 
   describe('基本渲染', () => {

@@ -1,5 +1,4 @@
-import { describe, test, expect, beforeEach, afterEach, mock } from 'bun:test'
-import { GlobalRegistrator } from '@happy-dom/global-registrator'
+import { describe, test, expect, beforeEach, mock } from 'bun:test'
 import { render } from '@testing-library/react'
 import PromptPanel from '../PromptPanel'
 
@@ -25,8 +24,6 @@ describe('PromptPanel', () => {
   let mockOnChange: ReturnType<typeof mock>
 
   beforeEach(() => {
-    GlobalRegistrator.register()
-
     Object.defineProperty(globalThis, 'localStorage', {
       value: localStorageMock,
       writable: true,
@@ -43,10 +40,6 @@ describe('PromptPanel', () => {
     mockOnChange = mock()
     confirmMock.mockReset()
     confirmMock.mockImplementation(() => true)
-  })
-
-  afterEach(() => {
-    GlobalRegistrator.unregister()
   })
 
   describe('基础渲染', () => {

@@ -1,5 +1,4 @@
-import { describe, test, expect, beforeEach, afterEach, mock } from 'bun:test'
-import { GlobalRegistrator } from '@happy-dom/global-registrator'
+import { describe, test, expect, beforeEach, mock } from 'bun:test'
 import { render } from '@testing-library/react'
 import { SettingsModal } from '../SettingsModal'
 import { useRagStore } from '../../../hooks/useRagStore'
@@ -18,8 +17,6 @@ describe('SettingsModal', () => {
   let mockSetPrevEvalResult: ReturnType<typeof mock>
 
   beforeEach(() => {
-    GlobalRegistrator.register()
-
     mockShowToast = mock()
     mockOnClose = mock()
     mockSetTemperature = mock()
@@ -28,7 +25,7 @@ describe('SettingsModal', () => {
     mockSetEvalResult = mock()
     mockSetPrevEvalResult = mock()
 
-    // @ts-expect-error: 模拟 useRagStore 
+    // @ts-expect-error: 模拟 useRagStore
     useRagStore.mockImplementation((selector: any) => {
       const store = {
         temperature: 0.7,
@@ -43,10 +40,6 @@ describe('SettingsModal', () => {
       }
       return selector(store)
     })
-  })
-
-  afterEach(() => {
-    GlobalRegistrator.unregister()
   })
 
   describe('基本渲染', () => {

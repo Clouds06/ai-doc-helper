@@ -1,6 +1,5 @@
-import { describe, test, expect, beforeEach, afterEach, mock } from 'bun:test'
+import { describe, test, expect, beforeEach, mock } from 'bun:test'
 import { render } from '@testing-library/react'
-import { GlobalRegistrator } from '@happy-dom/global-registrator'
 import { TopNavbar } from '../TopNavbar'
 import { BrowserRouter } from 'react-router-dom'
 
@@ -17,14 +16,9 @@ describe('TopNavbar', () => {
   let mockOnOpenSettings: ReturnType<typeof mock>
 
   beforeEach(() => {
-    GlobalRegistrator.register()
     mockOnOpenSettings = mock()
     mockNavigate.mockReset()
     mockLocation.pathname = '/'
-  })
-
-  afterEach(() => {
-    GlobalRegistrator.unregister()
   })
 
   const renderNavbar = () => {

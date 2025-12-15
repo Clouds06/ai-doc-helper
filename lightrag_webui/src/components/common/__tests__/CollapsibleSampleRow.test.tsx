@@ -1,6 +1,5 @@
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test'
+import { describe, test, expect, beforeEach } from 'bun:test'
 import { render } from '@testing-library/react'
-import { GlobalRegistrator } from '@happy-dom/global-registrator'
 import { CollapsibleSampleRow } from '../CollapsibleSampleRow'
 import type { EvalSample } from '@/types'
 
@@ -8,8 +7,6 @@ describe('CollapsibleSampleRow', () => {
   let mockSample: EvalSample
 
   beforeEach(() => {
-    GlobalRegistrator.register()
-
     mockSample = {
       question: '测试问题',
       answer: '测试答案',
@@ -23,10 +20,6 @@ describe('CollapsibleSampleRow', () => {
         context_precision: 0.88
       }
     }
-  })
-
-  afterEach(() => {
-    GlobalRegistrator.unregister()
   })
 
   describe('折叠状态', () => {
