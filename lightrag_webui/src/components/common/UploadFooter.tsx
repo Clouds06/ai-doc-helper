@@ -1,5 +1,5 @@
 import { cn } from '@/lib/utils';
-import { CheckCircle2, UploadCloud } from 'lucide-react';
+import { IconCheckCircle2, IconUploadCloud } from '@/components/icons';
 
 interface UploadFooterProps {
   files: File[];
@@ -38,12 +38,12 @@ export const UploadFooter = ({
           </>
         ) : finished ? (
           <>
-            <CheckCircle2 className="w-4 h-4" />
+            <IconCheckCircle2 className="w-4 h-4" />
             完成
           </>
         ) : (
           <>
-            <UploadCloud className="w-4 h-4" />
+            <IconUploadCloud className="w-4 h-4" />
             确认上传
           </>
         )}

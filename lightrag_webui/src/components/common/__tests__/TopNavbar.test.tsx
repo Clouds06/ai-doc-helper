@@ -46,8 +46,9 @@ describe('TopNavbar', () => {
     test('应显示 logo 图标', () => {
       const { container } = renderNavbar()
 
-      const logo = container.querySelector('.lucide-sparkles')
-      expect(logo).not.toBeNull()
+      const logoSection = container.querySelector('button[aria-label="首页"]')
+      const svg = logoSection?.querySelector('svg')
+      expect(svg).not.toBeNull()
     })
 
     test('应显示所有导航按钮', () => {
@@ -62,8 +63,10 @@ describe('TopNavbar', () => {
       const { container } = renderNavbar()
 
       expect(container.textContent).toContain('设置')
-      const settingsIcon = container.querySelector('.lucide-settings')
-      expect(settingsIcon).not.toBeNull()
+      const buttons = container.querySelectorAll('button')
+      const settingsButton = Array.from(buttons).find((b) => b.textContent?.includes('设置'))
+      const svg = settingsButton?.querySelector('svg')
+      expect(svg).not.toBeNull()
     })
   })
 
@@ -114,22 +117,28 @@ describe('TopNavbar', () => {
     test('应显示首页图标', () => {
       const { container } = renderNavbar()
 
-      const icon = container.querySelector('.lucide-layout-dashboard')
-      expect(icon).not.toBeNull()
+      const buttons = container.querySelectorAll('button')
+      const homeButton = Array.from(buttons).find((b) => b.textContent?.includes('首页'))
+      const svg = homeButton?.querySelector('svg')
+      expect(svg).not.toBeNull()
     })
 
     test('应显示对话图标', () => {
       const { container } = renderNavbar()
 
-      const icon = container.querySelector('.lucide-message-square')
-      expect(icon).not.toBeNull()
+      const buttons = container.querySelectorAll('button')
+      const chatButton = Array.from(buttons).find((b) => b.textContent?.includes('对话'))
+      const svg = chatButton?.querySelector('svg')
+      expect(svg).not.toBeNull()
     })
 
     test('应显示知识库图标', () => {
       const { container } = renderNavbar()
 
-      const icon = container.querySelector('.lucide-files')
-      expect(icon).not.toBeNull()
+      const buttons = container.querySelectorAll('button')
+      const docsButton = Array.from(buttons).find((b) => b.textContent?.includes('知识库'))
+      const svg = docsButton?.querySelector('svg')
+      expect(svg).not.toBeNull()
     })
 
     test('激活按钮的图标应有蓝色样式', () => {

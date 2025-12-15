@@ -56,7 +56,10 @@ describe('StaticOnboarding', () => {
     it('应显示步骤连接线和箭头', () => {
       const { container } = render(<StaticOnboarding />)
 
-      const arrows = container.querySelectorAll('.lucide-arrow-right')
+      const connectors = container.querySelectorAll('.flex-1.h-px')
+      const arrows = Array.from(connectors).flatMap((connector) =>
+        Array.from(connector.querySelectorAll('svg'))
+      )
       expect(arrows.length).toBe(2)
     })
 

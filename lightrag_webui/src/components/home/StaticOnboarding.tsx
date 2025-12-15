@@ -1,5 +1,5 @@
 import React, { useCallback, useState, useEffect } from 'react';
-import { X, UploadCloud, Cpu, MessageSquare, HelpCircle, ArrowRight } from 'lucide-react';
+import { IconX, IconUploadCloud, IconCpu, IconMessageSquare, IconHelpCircle, IconArrowRight } from '@/components/icons';
 import { cn } from '@/lib/utils';
 
 const STORAGE_KEY = 'rag-onboarding-visible';
@@ -75,21 +75,21 @@ const steps: Step[] = [
     id: 1,
     title: '1. 上传文档',
     subtitle: 'MD / DOCX / TXT 等',
-    icon: <UploadCloud className="w-5 h-5" />,
+    icon: <IconUploadCloud className="w-5 h-5" />,
     color: 'orange',
   },
   {
     id: 2,
     title: '2. 等待处理',
     subtitle: 'AI 解析与学习',
-    icon: <Cpu className="w-5 h-5" />,
+    icon: <IconCpu className="w-5 h-5" />,
     color: 'blue',
   },
   {
     id: 3,
     title: '3. 开始问答',
     subtitle: '精准检索与对话',
-    icon: <MessageSquare className="w-5 h-5" />,
+    icon: <IconMessageSquare className="w-5 h-5" />,
     color: 'green',
   },
 ];
@@ -112,7 +112,7 @@ function ToggleButton({ onOpen }: { onOpen: () => void }) {
         className="group inline-flex items-center gap-1.5 text-xs text-gray-400 hover:text-blue-600 transition-colors"
         aria-label="打开新手引导"
       >
-        <HelpCircle className="w-3.5 h-3.5" />
+        <IconHelpCircle className="w-3.5 h-3.5" />
         <span>新手引导</span>
       </button>
     </div>
@@ -138,7 +138,7 @@ function OnboardingHeader({ onClose, isOpen }: { onClose: () => void; isOpen: bo
         aria-expanded={isOpen}
         aria-controls="static-onboarding-steps"
       >
-        <X className="w-3.5 h-3.5" />
+        <IconX className="w-3.5 h-3.5" />
       </button>
     </div>
   );
@@ -170,7 +170,7 @@ const StepItem = React.memo(function StepItem({ step }: { step: Step }) {
 const ConnectorLine = () => (
   <div className="flex-1 h-px bg-gray-300 mx-2 -mt-6 relative">
     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white px-1">
-      <ArrowRight className="w-3 h-3 text-gray-400" />
+      <IconArrowRight className="w-3 h-3 text-gray-400" />
     </div>
   </div>
 );

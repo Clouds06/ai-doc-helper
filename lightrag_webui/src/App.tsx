@@ -2,7 +2,6 @@ import { useState, lazy, Suspense } from 'react'
 import { Routes, Route, useNavigate } from 'react-router-dom'
 import { Toast } from './components/common/Toast'
 import { LazySettingsModal } from './components/settings/LazySettingsModal'
-import { UploadModal } from './components/common/UploadModal'
 import { TopNavbar } from './components/common/TopNavbar'
 import { HomeView } from './views/HomeView'
 import { useRagStore } from './hooks/useRagStore'
@@ -10,6 +9,7 @@ import { sanitizeQuery } from './lib/utils'
 
 const ChatView = lazy(() => import('./views/ChatView'))
 const DocumentsView = lazy(() => import('./views/DocumentsView'))
+const UploadModal = lazy(() => import('./components/common/UploadModal'))
 
 const RouteLoadingFallback = () => (
   <div className="flex h-full items-center justify-center">
@@ -19,6 +19,8 @@ const RouteLoadingFallback = () => (
     </div>
   </div>
 )
+
+const ModalLoadingFallback = () => null
 
 export default function App() {
   const navigate = useNavigate()
@@ -104,7 +106,9 @@ export default function App() {
         </Routes>
       </main>
 
-      <UploadModal onUploadComplete={handleUploadComplete} />
+      <Suspense fallback={<ModalLoadingFallback />}>
+        <UploadModal onUploadComplete={handleUploadComplete} />
+      </Suspense>
     </div>
   )
 }

@@ -1,5 +1,5 @@
 import { RagasMetricKey } from '@/types'
-import { Target, BookOpenCheck, SearchCheck, FilterIcon } from 'lucide-react'
+import { IconTarget, IconBookOpenCheck, IconSearchCheck, IconFilterIcon } from '@/components/icons'
 
 export const backendBaseUrl = ''
 
@@ -38,25 +38,25 @@ export const METRIC_META: Record<
   faithfulness: {
     label: '忠实度',
     desc: '衡量回答是否忠实于原文档，是否避免出现幻觉或错误信息。',
-    icon: Target,
+    icon: IconTarget,
     color: 'blue'
   },
   answer_relevancy: {
     label: '相关性',
     desc: '衡量回答是否真正回应了用户问题，是否语义匹配、不跑题。',
-    icon: BookOpenCheck,
+    icon: IconBookOpenCheck,
     color: 'green'
   },
   context_recall: {
     label: '召回率',
     desc: '衡量系统是否找全了与问题相关的文档片段（是否缺少重要证据）。',
-    icon: SearchCheck,
+    icon: IconSearchCheck,
     color: 'purple'
   },
   context_precision: {
     label: '精度',
     desc: '衡量检索到的文档片段是否真正相关，是否包含无关噪声。',
-    icon: FilterIcon,
+    icon: IconFilterIcon,
     color: 'amber'
   }
 }
