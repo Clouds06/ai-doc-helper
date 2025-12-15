@@ -289,7 +289,7 @@ describe('ChatView 逻辑测试', () => {
 
     it('应该按块发送完整文本', (done) => {
       const fullText = '这是一段完整的测试文本';
-      let receivedChunks: string[] = [];
+      const receivedChunks: string[] = [];
       let completed = false;
 
       simulateStreaming(
