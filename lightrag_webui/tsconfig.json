@@ -31,7 +31,6 @@
     "src/types",
     "vite.config.ts",
     "src/vite-env.d.ts",
-    "tests/utils/utils.test.ts"
   ]
 }
 
