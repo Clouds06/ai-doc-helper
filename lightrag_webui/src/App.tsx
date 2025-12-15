@@ -1,14 +1,24 @@
-import { useState } from 'react'
+import { useState, lazy, Suspense } from 'react'
 import { Routes, Route, useNavigate } from 'react-router-dom'
 import { Toast } from './components/common/Toast'
-import { SettingsModal } from './components/settings/SettingsModal'
+import { LazySettingsModal } from './components/settings/LazySettingsModal'
 import { UploadModal } from './components/common/UploadModal'
 import { TopNavbar } from './components/common/TopNavbar'
 import { HomeView } from './views/HomeView'
-import { ChatView } from './views/ChatView'
-import { DocumentsView } from './views/DocumentsView'
 import { useRagStore } from './hooks/useRagStore'
 import { sanitizeQuery } from './lib/utils'
+
+const ChatView = lazy(() => import('./views/ChatView'))
+const DocumentsView = lazy(() => import('./views/DocumentsView'))
+
+const RouteLoadingFallback = () => (
+  <div className="flex h-full items-center justify-center">
+    <div className="flex flex-col items-center gap-3">
+      <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-200 border-t-blue-600" />
+      <p className="text-sm text-gray-500">加载中...</p>
+    </div>
+  </div>
+)
 
 export default function App() {
   const navigate = useNavigate()
@@ -33,7 +43,6 @@ export default function App() {
     }, 10)
   }
 
-  // 首页搜索 设置pendingQuery 跳到chat
   const handleSearchToChat = (q: string) => {
     const cleaned = sanitizeQuery(q)
     if (!cleaned) {
@@ -48,7 +57,6 @@ export default function App() {
     navigate('/chat')
   }
 
-  // 上传完成后跳转到documents页面
   const handleUploadComplete = async () => {
     showToast('上传成功，后台处理中', 'success')
     navigate('/documents', { replace: true })
@@ -65,7 +73,7 @@ export default function App() {
         />
       )}
 
-      <SettingsModal
+      <LazySettingsModal
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
         showToast={showToast}
@@ -76,8 +84,23 @@ export default function App() {
       <main className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
         <Routes>
           <Route path="/" element={<HomeView onSearch={handleSearchToChat} />} />
-          <Route path="/chat" element={<ChatView />} />
-          <Route path="/documents" element={<DocumentsView />} />
+
+          <Route
+            path="/chat"
+            element={
+              <Suspense fallback={<RouteLoadingFallback />}>
+                <ChatView />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/documents"
+            element={
+              <Suspense fallback={<RouteLoadingFallback />}>
+                <DocumentsView />
+              </Suspense>
+            }
+          />
         </Routes>
       </main>
 

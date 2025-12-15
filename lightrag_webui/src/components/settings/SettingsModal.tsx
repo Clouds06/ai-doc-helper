@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { ParamsTab } from './ParamsTab'
 import { EvalTab } from './EvalTab'
 import { useRagStore } from '../../hooks/useRagStore'
@@ -14,7 +14,6 @@ interface SettingsModalProps {
   showToast: (message: string, type: 'success' | 'warning' | 'info') => void
 }
 
-// 评测 / 配置用的参数快照
 export type SavedParamsSnapshot = {
   temperature: number
   chunkTopK: number
@@ -23,8 +22,14 @@ export type SavedParamsSnapshot = {
 
 export const SettingsModal = ({ isOpen, onClose, showToast }: SettingsModalProps) => {
   const [activeTab, setActiveTab] = useState('params')
+  const [hasOpened, setHasOpened] = useState(false)
 
-  // 从 Zustand 取当前全局配置
+  useEffect(() => {
+    if (isOpen && !hasOpened) {
+      setHasOpened(true)
+    }
+  }, [isOpen, hasOpened])
+
   const storeTemperature = useRagStore((s) => s.temperature)
   const setTemperature = useRagStore((s) => s.setTemperature)
 
@@ -104,7 +109,11 @@ export const SettingsModal = ({ isOpen, onClose, showToast }: SettingsModalProps
     }
   }
 
+  // 首页完全不渲染 Modal
   if (!isOpen) return null
+
+  // 未打开过时不渲染重内容，只渲染空壳以保持动画
+  if (!hasOpened) return null
 
   const tabs: CardTab[] = [
     { id: 'params', label: '参数配置' },
@@ -113,7 +122,7 @@ export const SettingsModal = ({ isOpen, onClose, showToast }: SettingsModalProps
 
   return (
     <div className="fixed inset-0 z-100 flex items-center justify-center">
-      <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" />
+      <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={onClose} />
 
       <div className="relative flex max-h-[90vh] min-h-[80vh] w-full max-w-4xl flex-col rounded-2xl bg-white p-4 shadow-2xl">
         <CardHeader

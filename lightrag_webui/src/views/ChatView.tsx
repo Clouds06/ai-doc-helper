@@ -1774,3 +1774,5 @@ export const ChatView = ({ initialQuery }: { initialQuery?: string }) => {
     </div>
   )
 }
+
+export default ChatView
