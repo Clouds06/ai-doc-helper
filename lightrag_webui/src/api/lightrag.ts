@@ -3,7 +3,6 @@ import { backendBaseUrl } from '../lib/constants'
 import { useSettingsStore } from '../stores/settings'
 import { errorMessage } from '@/lib/utils'
 import { EvalSample, RagEvalResult } from '@/types'
-import { mockRagEvalResult } from '@/data/mock'
 import {
   DocumentsRequest,
   PaginatedDocsResponse,
@@ -215,16 +214,14 @@ export const checkHealth = async (): Promise<
   }
 }
 
-export const USE_MOCK_DATA = false
 export async function runRagEvaluation(): Promise<RagEvalResult> {
   let res = undefined
-  if (!USE_MOCK_DATA)
-    res = await axiosInstance.post('/eval/do_eval', null, {
-      responseType: 'json',
-      timeout: 480000 // 8 minutes
-    })
+  res = await axiosInstance.post('/eval/do_eval', null, {
+    responseType: 'json',
+    timeout: 480000 // 8 minutes
+  })
 
-  const body = USE_MOCK_DATA ? mockRagEvalResult : res ? res.data : undefined
+  const body = res ? res.data : undefined
 
   const rawSamples = Array.isArray(body)
     ? body

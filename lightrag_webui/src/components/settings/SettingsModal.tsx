@@ -6,7 +6,7 @@ import { DEFAULT_SYSTEM_PROMPT } from '@/lib/constants'
 import { CardHeader } from '../common/CardHeader'
 import { CardTabs } from '../common/CardTabs'
 import { CardTab, RagEvalResult } from '@/types'
-import { runRagEvaluation, USE_MOCK_DATA } from '@/api/lightrag'
+import { runRagEvaluation } from '@/api/lightrag'
 
 interface SettingsModalProps {
   isOpen: boolean
@@ -41,7 +41,6 @@ export const SettingsModal = ({ isOpen, onClose, showToast }: SettingsModalProps
 
   const evalResult = useRagStore((s) => s.evalResult)
   const setEvalResult = useRagStore((s) => s.setEvalResult)
-  const setPrevEvalResult = useRagStore((s) => s.setPrevEvalResult)
 
   const defaultSystemPrompt =
     storeSystemPrompt && storeSystemPrompt.trim().length > 0
@@ -56,13 +55,9 @@ export const SettingsModal = ({ isOpen, onClose, showToast }: SettingsModalProps
 
   const [savedParams, setSavedParams] = useState<SavedParamsSnapshot>(initialSaved)
 
-  const [lastEvalParams] = useState<SavedParamsSnapshot | null>(null)
-
   const [evalState, setEvalState] = useState<'idle' | 'loading' | 'done'>('idle')
 
-  const [, setEvalError] = useState<string | null>(null)
-
-  const hasEvaluated = lastEvalParams !== null
+  const hasEvaluated = evalResult !== null
 
   const handleSaveConfig = async (next: SavedParamsSnapshot) => {
     setSavedParams(next)
@@ -87,33 +82,33 @@ export const SettingsModal = ({ isOpen, onClose, showToast }: SettingsModalProps
     if (evalState === 'loading') return
 
     setEvalState('loading')
-    setEvalError(null)
 
     try {
       if (evalResult) {
-        setPrevEvalResult(evalResult)
+        setEvalResult(evalResult)
       }
 
       const result: RagEvalResult = await runRagEvaluation()
-      if (USE_MOCK_DATA) {
-        await new Promise((resolve) => setTimeout(resolve, 1000))
-      }
       setEvalResult(result)
 
       setEvalState('done')
     } catch (err) {
       console.error('[runRagEvaluation] failed', err)
-      setEvalError(err instanceof Error ? err.message : '评测失败，请稍后重试。')
       setEvalState('idle')
       showToast('评测失败，请稍后重试。', 'warning')
     }
   }
 
-  // 首页完全不渲染 Modal
   if (!isOpen) return null
-
-  // 未打开过时不渲染重内容，只渲染空壳以保持动画
   if (!hasOpened) return null
+
+  const handleClose = () => {
+    if (evalState === 'loading') {
+      showToast('评测进行中，请稍后再关闭', 'warning')
+      return
+    }
+    onClose()
+  }
 
   const tabs: CardTab[] = [
     { id: 'params', label: '参数配置' },
@@ -122,13 +117,13 @@ export const SettingsModal = ({ isOpen, onClose, showToast }: SettingsModalProps
 
   return (
     <div className="fixed inset-0 z-100 flex items-center justify-center">
-      <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={handleClose} />
 
       <div className="relative flex max-h-[90vh] min-h-[80vh] w-full max-w-4xl flex-col rounded-2xl bg-white p-4 shadow-2xl">
         <CardHeader
           title="RAG 设置"
           description="调优参数配置，观察 RAG 系统在真实文档上的表现"
-          onClose={onClose}
+          onClose={handleClose}
         />
 
         <CardTabs tabs={tabs} activeTab={activeTab} onClick={setActiveTab} />
