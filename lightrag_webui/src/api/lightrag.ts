@@ -215,7 +215,7 @@ export const checkHealth = async (): Promise<
   }
 }
 
-export const USE_MOCK_DATA = true
+export const USE_MOCK_DATA = false
 export async function runRagEvaluation(): Promise<RagEvalResult> {
   let res = undefined
   if (!USE_MOCK_DATA)
@@ -236,19 +236,37 @@ export async function runRagEvaluation(): Promise<RagEvalResult> {
           ? body.items
           : []
 
-  const samples: EvalSample[] = rawSamples.map((s: any) => ({
-    question: s.question ?? s.user_input ?? '',
-    answer: (s.response ?? s.answer ?? '').toString(),
-    reference: s.reference ?? s.ground_truth ?? undefined,
-    metrics: {
-      faithfulness: typeof s.faithfulness === 'number' ? s.faithfulness : undefined,
-      answer_relevancy: typeof s.answer_relevancy === 'number' ? s.answer_relevancy : undefined,
-      context_recall: typeof s.context_recall === 'number' ? s.context_recall : undefined,
-      context_precision: typeof s.context_precision === 'number' ? s.context_precision : undefined
-    },
-    contexts: s.contexts ?? '',
-    retrieved_context: s.retrieved_contexts ?? ''
-  }))
+  const samples: EvalSample[] = rawSamples.map((s: any) => {
+    // 提取ground_truth字段
+    const groundTruth = s.ground_truth ?? s.reference ?? undefined
+    
+    // 提取reasoning字段结构
+    let reasoning = undefined
+    if (s.reasoning && typeof s.reasoning === 'object') {
+      reasoning = {
+        faithfulness: s.reasoning.faithfulness ?? undefined,
+        answer_relevancy: s.reasoning.answer_relevancy ?? undefined,
+        context_recall: s.reasoning.context_recall ?? undefined,
+        context_precision: s.reasoning.context_precision ?? undefined
+      }
+    }
+
+    return {
+      question: s.question ?? s.user_input ?? '',
+      answer: (s.response ?? s.answer ?? '').toString(),
+      reference: s.reference ?? s.ground_truth ?? undefined,
+      metrics: {
+        faithfulness: typeof s.faithfulness === 'number' ? s.faithfulness : undefined,
+        answer_relevancy: typeof s.answer_relevancy === 'number' ? s.answer_relevancy : undefined,
+        // 处理字段名称差异 - 支持 context_recall 和 context_relevancy
+        context_recall: typeof s.context_recall === 'number' ? s.context_recall :
+          typeof s.context_relevancy === 'number' ? s.context_relevancy : undefined,
+        context_precision: typeof s.context_precision === 'number' ? s.context_precision : undefined
+      },
+      ground_truth: groundTruth,
+      reasoning: reasoning
+    }
+  })
 
   return {
     total_count: typeof body.total_count === 'number' ? body.total_count : samples.length,

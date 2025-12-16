@@ -79,8 +79,13 @@ export interface EvalSample {
   answer: string
   reference?: string
   metrics: RagasMetrics
-  contexts: string[]
-  retrieved_context: string[]
+  ground_truth?: string
+  reasoning?: {
+    faithfulness?: string
+    answer_relevancy?: string
+    context_recall?: string
+    context_precision?: string
+  }
 }
 
 export interface RagEvalResult {
