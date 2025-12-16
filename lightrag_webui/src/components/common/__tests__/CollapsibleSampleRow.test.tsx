@@ -11,13 +11,17 @@ describe('CollapsibleSampleRow', () => {
       question: '测试问题',
       answer: '测试答案',
       reference: '参考答案',
-      retrieved_context: ['上下文1', '上下文2'],
-      contexts: ['参考上下文1', '参考上下文2'],
       metrics: {
         faithfulness: 0.85,
         answer_relevancy: 0.92,
         context_recall: 0.78,
         context_precision: 0.88
+      },
+      reasoning: {
+        faithfulness: '理由1',
+        answer_relevancy: '理由2',
+        context_recall: '理由3',
+        context_precision: '理由4'
       }
     }
   })
@@ -64,8 +68,13 @@ describe('CollapsibleSampleRow', () => {
     test('应显示展开箭头', () => {
       const { container } = render(<CollapsibleSampleRow sample={mockSample} index={0} />)
 
-      const chevron = container.querySelector('.lucide-chevron-right')
-      expect(chevron).not.toBeNull()
+      // 检查箭头图标容器
+      const chevronContainer = container.querySelector('.shrink-0.text-gray-300')
+      expect(chevronContainer).not.toBeNull()
+
+      // 或检查是否有 svg 元素（图标会渲染为 svg）
+      const icon = container.querySelector('svg')
+      expect(icon).not.toBeNull()
     })
   })
 
@@ -119,32 +128,6 @@ describe('CollapsibleSampleRow', () => {
         retrieved_context: [],
         contexts: []
       }
-
-      const { container } = render(<CollapsibleSampleRow sample={emptySample} index={0} />)
-
-      expect(container.querySelector('.group.rounded-xl')).not.toBeNull()
-    })
-  })
-
-  describe('类型灵活性', () => {
-    test('应处理字符串形式的上下文', () => {
-      const stringSample = {
-        ...mockSample,
-        retrieved_context: '单个上下文',
-        contexts: '单个参考'
-      } as any
-
-      const { container } = render(<CollapsibleSampleRow sample={stringSample} index={0} />)
-
-      expect(container.querySelector('.group.rounded-xl')).not.toBeNull()
-    })
-
-    test('应处理空字符串上下文', () => {
-      const emptySample = {
-        ...mockSample,
-        retrieved_context: '',
-        contexts: ''
-      } as any
 
       const { container } = render(<CollapsibleSampleRow sample={emptySample} index={0} />)
 

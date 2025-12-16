@@ -1,11 +1,18 @@
 import { extractRefsFromText, getSampleStatus } from '@/lib/utils'
 import { EvalSample } from '@/types'
-import { ChevronRight, Bot, UserCheck, FileSearch, ChevronLeft } from 'lucide-react'
+import {
+  IconChevronRight,
+  IconBot,
+  IconSearchCheck,
+  IconSearch,
+  IconChevronLeft
+} from '@/components/icons'
 import { DetailScoreBadges } from './DetailedScoreBadges'
 import { useState, useEffect } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import InlineTooltip from './InlineTooltip'
+import { METRIC_META, METRIC_ORDER } from '@/lib/constants'
 interface CollapsibleSampleRowProps {
   sample: EvalSample
   index: number
@@ -52,7 +59,7 @@ export const CollapsibleSampleRow = ({ sample }: CollapsibleSampleRowProps) => {
 
           <div className="shrink-0 text-gray-300 transition-colors group-hover:text-indigo-500">
             <div className="rounded-full p-1 group-hover:bg-indigo-50">
-              <ChevronRight className="h-5 w-5" />
+              <IconChevronRight className="h-5 w-5" />
             </div>
           </div>
         </div>
@@ -68,7 +75,7 @@ export const CollapsibleSampleRow = ({ sample }: CollapsibleSampleRowProps) => {
                   className="group flex items-center rounded-full"
                 >
                   <div className="shrink-0 rounded-full p-1 text-gray-400 transition-colors group-hover:bg-gray-200 group-hover:text-gray-700">
-                    <ChevronLeft className="h-5 w-5" />
+                    <IconChevronLeft className="h-5 w-5" />
                   </div>
                 </button>
 
@@ -86,56 +93,23 @@ export const CollapsibleSampleRow = ({ sample }: CollapsibleSampleRowProps) => {
                     : 'border-red-100 bg-red-50 text-red-700'
                 }`}
               >
-                {isPass ? '通过' : '需优化'}
+                {isPass ? '通过' : '未通过'}
               </div>
             </div>
 
             <div className="custom-scrollbar flex-1 space-y-4 overflow-y-auto p-6">
               <section className="space-y-6">
-                <AnswerSection title="AI 回答" icon={Bot} text={sample.answer} color="blue" />
+                <AnswerSection title="AI 回答" icon={IconBot} text={sample.answer} color="blue" />
 
                 <AnswerSection
                   title="标准答案"
-                  icon={UserCheck}
+                  icon={IconSearchCheck}
                   text={sample.ground_truth || sample.reference || ''}
                   color="gray"
                 />
               </section>
 
-              {sample.reasoning && (
-                <section className="border-t border-gray-100 pt-4">
-                  <div className="mb-3 flex items-center gap-2 text-sm font-bold text-indigo-700">
-                    <FileSearch className="h-4 w-4" />
-                    评估理由
-                  </div>
-                  <div className="space-y-3">
-                    {sample.reasoning.faithfulness && (
-                      <div className="rounded-lg border border-indigo-100 bg-indigo-50/30 p-3">
-                        <div className="text-xs font-medium text-indigo-700 mb-1">忠实度</div>
-                        <div className="text-sm text-gray-700">{sample.reasoning.faithfulness}</div>
-                      </div>
-                    )}
-                    {sample.reasoning.answer_relevancy && (
-                      <div className="rounded-lg border border-blue-100 bg-blue-50/30 p-3">
-                        <div className="text-xs font-medium text-blue-700 mb-1">答案相关性</div>
-                        <div className="text-sm text-gray-700">{sample.reasoning.answer_relevancy}</div>
-                      </div>
-                    )}
-                    {sample.reasoning.context_recall && (
-                      <div className="rounded-lg border border-green-100 bg-green-50/30 p-3">
-                        <div className="text-xs font-medium text-green-700 mb-1">上下文召回率</div>
-                        <div className="text-sm text-gray-700">{sample.reasoning.context_recall}</div>
-                      </div>
-                    )}
-                    {sample.reasoning.context_precision && (
-                      <div className="rounded-lg border border-purple-100 bg-purple-50/30 p-3">
-                        <div className="text-xs font-medium text-purple-700 mb-1">上下文精确率</div>
-                        <div className="text-sm text-gray-700">{sample.reasoning.context_precision}</div>
-                      </div>
-                    )}
-                  </div>
-                </section>
-              )}
+              {sample.reasoning && <ReasoningSection reasoning={sample.reasoning} />}
             </div>
           </div>
         </div>
@@ -240,6 +214,40 @@ const AnswerSection = ({
           {!text && <span className="text-xs text-gray-400 italic">暂无内容</span>}
         </div>
       </div>
+    </div>
+  )
+}
+
+const ReasoningSection = ({ reasoning }: { reasoning: EvalSample['reasoning'] }) => {
+  if (!reasoning) return null
+
+  return (
+    <div>
+      <section className="border-t border-gray-100 pt-4">
+        <div className="mb-3 flex items-center gap-2 text-sm font-bold text-indigo-700">
+          <IconSearch className="h-4 w-4" />
+          评估理由
+        </div>
+        <div className="space-y-3">
+          {METRIC_ORDER.map((metricKey) => {
+            const reasonText = reasoning[metricKey]
+            if (!reasonText) return null
+
+            const meta = METRIC_META[metricKey]
+            const { label, color } = meta
+
+            return (
+              <div
+                key={metricKey}
+                className={`rounded-lg border border-${color}-100 bg-${color}-50/30 p-3`}
+              >
+                <div className={`text-sm font-medium text-${color}-700 mb-1`}>{label}</div>
+                <div className="text-sm text-gray-700">{reasonText}</div>
+              </div>
+            )
+          })}
+        </div>
+      </section>
     </div>
   )
 }

@@ -88,7 +88,7 @@ export const EvalResultDisplay = ({ onStartEvaluation }: EvalResultDisplayProps)
                     onClick={() => setFilter('fail')}
                     className={`rounded-md px-3 py-1 text-[13px] transition duration-150 focus:outline-none ${filter === 'fail' ? 'bg-red-500 text-white' : 'text-gray-600 hover:bg-gray-200'}`}
                   >
-                    需优化
+                    未通过
                   </button>
                 </div>
               </div>
