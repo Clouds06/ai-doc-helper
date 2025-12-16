@@ -1,54 +1,54 @@
-import { useEffect, useState } from 'react';
-import { Thermometer, Search, MessageSquare } from 'lucide-react';
-import type { SavedParamsSnapshot } from './SettingsModal';
-import Slider from '../common/Slider';
-import { NumberInput } from '../common/NumberInput';
-import PromptPanel from './PromptPanel';
-import { getTempLabel, getChunkLabel } from '@/lib/utils';
-import { DEFAULT_SYSTEM_PROMPT } from '@/lib/constants';
-import { SettingCard } from '../common/SettingCard';
-import { ParamsFooter } from '@/components/common/ParamsFooter';
+import { useEffect, useState } from 'react'
+import { Thermometer, Search, MessageSquare } from 'lucide-react'
+import type { SavedParamsSnapshot } from './SettingsModal'
+import Slider from '../common/Slider'
+import { NumberInput } from '../common/NumberInput'
+import PromptPanel from './PromptPanel'
+import { getTempLabel, getChunkLabel } from '@/lib/utils'
+import { DEFAULT_SYSTEM_PROMPT, PROMPT_PRESETS } from '@/lib/constants'
+import { SettingCard } from '../common/SettingCard'
+import { ParamsFooter } from '@/components/common/ParamsFooter'
 
 interface ParamsTabProps {
-  savedParams: SavedParamsSnapshot;
-  onSaveConfig: (next: SavedParamsSnapshot) => void;
+  savedParams: SavedParamsSnapshot
+  onSaveConfig: (next: SavedParamsSnapshot) => void
 }
 
 export const ParamsTab = ({ savedParams, onSaveConfig }: ParamsTabProps) => {
   const [editingParams, setEditingParams] = useState<SavedParamsSnapshot>({
     temperature: savedParams.temperature,
     chunkTopK: savedParams.chunkTopK,
-    systemPrompt: savedParams.systemPrompt || DEFAULT_SYSTEM_PROMPT,
-  });
+    systemPrompt: savedParams.systemPrompt || DEFAULT_SYSTEM_PROMPT
+  })
 
-  // 外部快照更新时（例如重新打开弹窗），同步到本地编辑态
   useEffect(() => {
     setEditingParams({
       temperature: savedParams.temperature,
       chunkTopK: savedParams.chunkTopK,
-      systemPrompt: savedParams.systemPrompt || DEFAULT_SYSTEM_PROMPT,
-    });
-  }, [savedParams]);
+      systemPrompt: savedParams.systemPrompt || DEFAULT_SYSTEM_PROMPT
+    })
+  }, [savedParams])
 
-  const tempStatus = getTempLabel(editingParams.temperature);
-  const chunkStatus = getChunkLabel(editingParams.chunkTopK);
+  const tempStatus = getTempLabel(editingParams.temperature)
+  const chunkStatus = getChunkLabel(editingParams.chunkTopK)
 
   const handleReset = () => {
+    const defaultPreset = PROMPT_PRESETS.find((p) => p.id === 'default')
     setEditingParams({
       temperature: 0.7,
       chunkTopK: 20,
-      systemPrompt: DEFAULT_SYSTEM_PROMPT,
-    });
-  };
+      systemPrompt: defaultPreset?.content || DEFAULT_SYSTEM_PROMPT
+    })
+  }
 
   const handleSaveClick = () => {
-    onSaveConfig(editingParams);
-  };
+    onSaveConfig(editingParams)
+  }
 
   return (
-    <div className="flex-1 flex flex-col min-h-full">
+    <div className="flex min-h-full flex-1 flex-col">
       <div className="flex-1 pb-28">
-        <div className="max-w-3xl mx-auto space-y-4 animate-fade-in pt-2">
+        <div className="animate-fade-in mx-auto max-w-3xl space-y-4 pt-2">
           <SettingCard
             icon={Thermometer}
             title="温度"
@@ -62,7 +62,7 @@ export const ParamsTab = ({ savedParams, onSaveConfig }: ParamsTabProps) => {
               onChange={(val) =>
                 setEditingParams((prev) => ({
                   ...prev,
-                  temperature: val,
+                  temperature: val
                 }))
               }
               min={0}
@@ -86,7 +86,7 @@ export const ParamsTab = ({ savedParams, onSaveConfig }: ParamsTabProps) => {
               onChange={(val: number) =>
                 setEditingParams((prev) => ({
                   ...prev,
-                  chunkTopK: val,
+                  chunkTopK: val
                 }))
               }
               min={1}
@@ -106,7 +106,7 @@ export const ParamsTab = ({ savedParams, onSaveConfig }: ParamsTabProps) => {
               onChange={(val) =>
                 setEditingParams((prev) => ({
                   ...prev,
-                  systemPrompt: val,
+                  systemPrompt: val
                 }))
               }
             />
@@ -114,10 +114,8 @@ export const ParamsTab = ({ savedParams, onSaveConfig }: ParamsTabProps) => {
         </div>
       </div>
 
-      <ParamsFooter
-        handleReset={handleReset}
-        handleSaveClick={handleSaveClick}
-      />
+      <ParamsFooter handleReset={handleReset} handleSaveClick={handleSaveClick} />
     </div>
-  );
-};
+  )
+}
+
