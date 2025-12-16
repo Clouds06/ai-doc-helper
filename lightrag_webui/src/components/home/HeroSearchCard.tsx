@@ -1,5 +1,5 @@
 import { useState, FormEvent, KeyboardEvent } from 'react'
-import { ImageIcon, FileText, Mic, ArrowRight } from 'lucide-react'
+import { IconImageIcon, IconFileText, IconMic, IconArrowRight } from '@/components/icons'
 import { useTypewriterLoop } from '@/hooks/useTypewriter'
 import { useUploadStore } from '@/hooks/useUploadStore'
 import { PLACEHOLDER_LOOP_WORDS } from '@/lib/constants'
@@ -33,13 +33,13 @@ const HomeUploadZone = () => {
       >
         <div className="flex -space-x-2 transition-transform duration-300 group-hover:scale-105">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg border-2 border-white bg-orange-50 text-orange-500 shadow-sm">
-            <ImageIcon className="h-4 w-4" />
+            <IconImageIcon className="h-4 w-4" />
           </div>
           <div className="z-10 flex h-9 w-9 items-center justify-center rounded-lg border-2 border-white bg-blue-50 text-blue-600 shadow-sm">
-            <FileText className="h-4 w-4" />
+            <IconFileText className="h-4 w-4" />
           </div>
           <div className="flex h-9 w-9 items-center justify-center rounded-lg border-2 border-white bg-green-50 text-green-500 shadow-sm">
-            <Mic className="h-4 w-4" />
+            <IconMic className="h-4 w-4" />
           </div>
         </div>
         <p className="mt-1 text-sm text-gray-500 transition-colors group-hover:text-blue-600">
@@ -61,6 +61,7 @@ const HomeSearch = ({ onSearch, initialQuery = '' }: HomeSearchProps) => {
   const [isFocused, setIsFocused] = useState(false)
   const animatedPlaceholder = useTypewriterLoop(PLACEHOLDER_LOOP_WORDS, isFocused)
   const placeholder = animatedPlaceholder
+  // const placeholder = '请输入你要查询的问题'
   const hasText = input.trim().length > 0
 
   const handleSubmit = (e: FormEvent) => {
@@ -127,7 +128,7 @@ const HomeSearch = ({ onSearch, initialQuery = '' }: HomeSearchProps) => {
                   : 'cursor-default bg-gray-100 text-gray-300'
               }`}
             >
-              <ArrowRight className="h-3.5 w-3.5" />
+              <IconArrowRight className="h-3.5 w-3.5" />
             </button>
           </div>
         </div>

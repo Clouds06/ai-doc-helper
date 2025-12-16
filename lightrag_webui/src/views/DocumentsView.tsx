@@ -82,32 +82,35 @@ export const DocumentsView = () => {
   }, [])
 
   // 核心：获取文档列表数据
-  const fetchDocs = useCallback(async (page = 1) => {
-    setLoading(true)
-    try {
-      let fileTypeParam: string | undefined = undefined
-      if (filterType !== 'all') {
-        fileTypeParam = filterType
+  const fetchDocs = useCallback(
+    async (page = 1) => {
+      setLoading(true)
+      try {
+        let fileTypeParam: string | undefined = undefined
+        if (filterType !== 'all') {
+          fileTypeParam = filterType
+        }
+
+        const res = await getDocuments({
+          page,
+          page_size: pagination.page_size,
+          keyword: keyword || undefined,
+          file_type: fileTypeParam,
+          sort_field: 'updated_at',
+          sort_direction: 'desc'
+        })
+
+        setDocs(res.documents)
+        setPagination(res.pagination)
+      } catch (err) {
+        console.error(err)
+        toast.error('获取文档列表失败: ' + errorMessage(err))
+      } finally {
+        setLoading(false)
       }
-
-      const res = await getDocuments({
-        page,
-        page_size: pagination.page_size,
-        keyword: keyword || undefined,
-        file_type: fileTypeParam,
-        sort_field: 'updated_at',
-        sort_direction: 'desc'
-      })
-
-      setDocs(res.documents)
-      setPagination(res.pagination)
-    } catch (err) {
-      console.error(err)
-      toast.error('获取文档列表失败: ' + errorMessage(err))
-    } finally {
-      setLoading(false)
-    }
-  }, [filterType, keyword, pagination.page_size])
+    },
+    [filterType, keyword, pagination.page_size]
+  )
 
   // 初始加载及筛选条件变化时触发
   useEffect(() => {
@@ -137,7 +140,7 @@ export const DocumentsView = () => {
       if (isBusy) {
         toast.warning('无法执行删除', {
           description: '系统正在处理上传的文件（索引或提取中），请等待当前任务完成后再试。',
-          duration: 4000,
+          duration: 4000
         })
         return
       }
@@ -262,7 +265,6 @@ export const DocumentsView = () => {
 
   return (
     <div className="flex h-full flex-col overflow-hidden bg-slate-50 px-4 py-6 md:px-8">
-
       {/* 顶部标题与操作栏 */}
       <div className="mb-6 flex flex-col justify-between gap-4 md:flex-row md:items-center">
         <div>
@@ -324,15 +326,16 @@ export const DocumentsView = () => {
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {docs.length > 0 ? (
               docs.map((doc) => {
-                const summary = doc.content_summary || '';
-                const displaySummary = summary.length > 100 ? summary.slice(0, 100) + '...' : summary;
-                const tooltipTitle = summary ? `摘要: ${displaySummary}` : doc.file_path;
+                const summary = doc.content_summary || ''
+                const displaySummary =
+                  summary.length > 100 ? summary.slice(0, 100) + '...' : summary
+                const tooltipTitle = summary ? `摘要: ${displaySummary}` : doc.file_path
 
                 return (
                   <div
                     key={doc.id}
                     title={tooltipTitle}
-                    className="group relative cursor-pointer rounded-xl border border-gray-100 bg-white p-4 shadow-sm transition-all hover:border-blue-200 hover:shadow-md flex flex-col justify-between"
+                    className="group relative flex cursor-pointer flex-col justify-between rounded-xl border border-gray-100 bg-white p-4 shadow-sm transition-all hover:border-blue-200 hover:shadow-md"
                   >
                     {/* 右上角更多操作菜单 */}
                     <div
@@ -369,9 +372,7 @@ export const DocumentsView = () => {
                       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gray-50">
                         {getIcon(doc.file_path)}
                       </div>
-                      <h3
-                        className="line-clamp-2 text-sm font-semibold text-gray-800 break-all"
-                      >
+                      <h3 className="line-clamp-2 text-sm font-semibold break-all text-gray-800">
                         {doc.file_path.split('/').pop() || doc.id}
                       </h3>
                     </div>
@@ -382,13 +383,14 @@ export const DocumentsView = () => {
                         <span>•</span>
                         <span>{formatDate(doc.updated_at)}</span>
                       </div>
-                      <div>
-                        {getStatusBadge(doc.status)}
-                      </div>
+                      <div>{getStatusBadge(doc.status)}</div>
                     </div>
 
                     {doc.error_msg && (
-                      <div className="mt-2 text-[10px] text-red-500 line-clamp-1" title={doc.error_msg}>
+                      <div
+                        className="mt-2 line-clamp-1 text-[10px] text-red-500"
+                        title={doc.error_msg}
+                      >
                         错误: {doc.error_msg}
                       </div>
                     )}
@@ -429,3 +431,5 @@ export const DocumentsView = () => {
     </div>
   )
 }
+
+export default DocumentsView

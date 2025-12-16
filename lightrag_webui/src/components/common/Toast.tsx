@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { CheckCircle2, AlertCircle, Info } from 'lucide-react'
+import { IconCheckCircle2, IconAlertCircle, IconInfo } from '@/components/icons'
 
 interface ToastProps {
   message: string
@@ -26,9 +26,9 @@ export const Toast = ({ message, type, onClose }: ToastProps) => {
   }
 
   const icons = {
-    success: <CheckCircle2 className="h-5 w-5" />,
-    warning: <AlertCircle className="h-5 w-5" />,
-    info: <Info className="h-5 w-5" />
+    success: <IconCheckCircle2 className="h-5 w-5" />,
+    warning: <IconAlertCircle className="h-5 w-5" />,
+    info: <IconInfo className="h-5 w-5" />
   }
 
   return (
