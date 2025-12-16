@@ -8,9 +8,9 @@
     "build": "bunx --bun vite build",
     "lint": "eslint .",
     "preview": "bunx --bun vite preview",
-    "test": "bun test",
-    "test:watch": "bun test --watch",
-    "test:coverage": "bun test --coverage",
+    "test": "bun test --preload ./src/test-setup.ts",
+    "test:watch": "bun test --watch --preload ./src/test-setup.ts",
+    "test:coverage": "bun test --coverage --preload ./src/test-setup.ts",
     "dev-no-bun": "vite",
     "build-no-bun": "vite build --emptyOutDir",
     "preview-no-bun": "vite preview"
@@ -116,3 +116,4 @@
     "vite": "^6.3.6"
   }
 }
+

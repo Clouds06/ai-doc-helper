@@ -7,53 +7,8 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-export function randomColor() {
-  const digits = '0123456789abcdef'
-  let code = '#'
-  for (let i = 0; i < 6; i++) {
-    code += digits.charAt(Math.floor(Math.random() * 16))
-  }
-  return code
-}
-
 export function errorMessage(error: any) {
   return error instanceof Error ? error.message : `${error}`
-}
-
-/**
- * Creates a throttled function that limits how often the original function can be called
- * @param fn The function to throttle
- * @param delay The delay in milliseconds
- * @returns A throttled version of the function
- */
-export function throttle<T extends (...args: any[]) => any>(
-  fn: T,
-  delay: number
-): (...args: Parameters<T>) => void {
-  let lastCall = 0
-  let timeoutId: ReturnType<typeof setTimeout> | null = null
-
-  return function (this: any, ...args: Parameters<T>) {
-    const now = Date.now()
-    const remaining = delay - (now - lastCall)
-
-    if (remaining <= 0) {
-      // If enough time has passed, execute the function immediately
-      if (timeoutId) {
-        clearTimeout(timeoutId)
-        timeoutId = null
-      }
-      lastCall = now
-      fn.apply(this, args)
-    } else if (!timeoutId) {
-      // If not enough time has passed, set a timeout to execute after the remaining time
-      timeoutId = setTimeout(() => {
-        lastCall = Date.now()
-        timeoutId = null
-        fn.apply(this, args)
-      }, remaining)
-    }
-  }
 }
 
 type WithSelectors<S> = S extends { getState: () => infer T }
@@ -78,11 +33,7 @@ export const sanitizeQuery = (raw: string) => {
   let s = String(raw)
   s = s.replace(/\r\n?/g, '\n') // 统一换行
   // eslint-disable-next-line no-control-regex
-  s = s.replace(/[\x00-\x1F\x7F-\x9F]/g, '') // 移除不可见控制字符
-
-  // 移除代码块和行内代码
-  s = s.replace(/```[\s\S]*?```/g, '') // 多行代码块
-  s = s.replace(/`[^`]*`/g, '') // 行内代码
+  s = s.replace(/[\x00-\x08\x0B-\x0C\x0E-\x1F\x7F-\x9F]/g, '')
 
   // 常见 prompt 注入短语（中英）及其后续内容，尽量在发现时删除该短语
   const injectionPatterns = [
@@ -95,46 +46,15 @@ export const sanitizeQuery = (raw: string) => {
     /ignore (this )?and (all )?previous instructions[\s\S]*/gi,
     /from now on,? ignore (all )?previous instructions[\s\S]*/gi,
     /忽略.*之前.*指示[\s\S]*/gi,
-    /忘记.*之前.*指示[\s\S]*/gi,
     /忽略.*之前.*指令[\s\S]*/gi,
-    /从现在起.*不要.*遵循.*之前/gi,
-    /不要遵循之前的指示[\s\S]*/gi,
-    /只回答.*$/gim, // "只回答..." 这类限定性指令移除
-    /按照下面.*要求.*回答[\s\S]*/gi
+    /忘记.*之前.*指示[\s\S]*/gi,
+    /忘记.*之前.*指令[\s\S]*/gi,
+    /不要遵循.*之前.*指示.*[\s\S]*/gi,
+    /不要遵循.*之前.*指令[\s\S]*/gi
   ]
 
   for (const p of injectionPatterns) {
     s = s.replace(p, '')
-  }
-
-  // 在常见分隔符或角色标注处截断，防止后续隐藏指令影响
-  const separators = [
-    '###',
-    '---',
-    '***',
-    '===',
-    'System:',
-    'Assistant:',
-    'User:',
-    'USER:',
-    'SYSTEM:',
-    'ASSISTANT:',
-    'INSTRUCTIONS:',
-    'OUTPUT:',
-    '指示：',
-    '系统：',
-    '助手：',
-    '用户：'
-  ]
-  let cutIndex = -1
-  for (const sep of separators) {
-    const idx = s.indexOf(sep)
-    if (idx !== -1) {
-      if (cutIndex === -1 || idx < cutIndex) cutIndex = idx
-    }
-  }
-  if (cutIndex !== -1) {
-    s = s.slice(0, cutIndex)
   }
 
   // 移除多余的空行/空白，限制长度
@@ -146,7 +66,7 @@ export const sanitizeQuery = (raw: string) => {
     .replace(/\s+/g, ' ')
     .trim()
 
-  const MAX_LEN = 500
+  const MAX_LEN = 2000
   if (s.length > MAX_LEN) s = s.slice(0, MAX_LEN).trim()
 
   return s
@@ -155,8 +75,8 @@ export const sanitizeQuery = (raw: string) => {
 // 将 0-1 小数转为百分比，保留一位小数
 export const toPercent = (v?: number) => (typeof v === 'number' ? Math.round(v * 1000) / 10 : null)
 
-// TODO 修改通过的样例标准
-// 目前未faithfulness >= 0.7 && answer_relevance >= 0.8
+// 根据评测指标返回样本是否通过
+// 目前faithfulness >= 0.7 && answer_relevance >= 0.8
 export const getSampleStatus = (metrics: RagasMetrics): 'pass' | 'fail' => {
   const aa = metrics.faithfulness ?? 0
   const rg = metrics.answer_relevancy ?? 0
@@ -260,3 +180,4 @@ export const ensureArray = (input: any): string[] => {
   if (typeof input === 'string' && input.trim() !== '') return [input]
   return []
 }
+

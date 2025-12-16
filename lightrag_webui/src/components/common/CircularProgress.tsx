@@ -22,7 +22,7 @@ export const CircularProgress = ({ value, color }: CircularProgressProps) => {
         transform={`rotate(-90 ${center} ${center})`}
       />
       <circle
-        className={`text-${color}-500`}
+        className={`text-${color}-600`}
         strokeWidth="4"
         stroke="currentColor"
         fill="transparent"
@@ -39,7 +39,7 @@ export const CircularProgress = ({ value, color }: CircularProgressProps) => {
         y={center}
         textAnchor="middle"
         dominantBaseline="middle"
-        className={`text-${color}-700 text-lg font-bold`}
+        className={'text-lg font-bold text-gray-900'}
       >
         {value}
         <tspan className="ml-0.5 text-sm font-normal text-gray-300">%</tspan>
