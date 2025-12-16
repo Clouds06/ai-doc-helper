@@ -65,13 +65,15 @@ async def get_response(query, rag=None):
     # 如果提供了rag对象，直接调用其方法
     if rag is not None:
         try:
-            # 创建查询参数
+            # 创建查询参数 - 使用与curl命令相同的参数
             param = QueryParam(
                 mode="hybrid",  # 与前端默认模式一致
                 include_references=True,
                 stream=False,
                 conversation_history=[],  # 对应前端的history参数
-                enable_rerank=False  # 禁用重排序，避免警告
+                enable_rerank=False,  # 禁用重排序，与curl命令一致
+                top_k=5,  # 检索的实体/关系数量
+                chunk_top_k=3  # 检索的文本块数量
             )
             
             # 直接调用rag的aquery_llm方法
@@ -122,14 +124,17 @@ async def get_response(query, rag=None):
     if api_key:
         headers["X-API-Key"] = api_key
     
-    # 非流式查询 - 严格使用前端模式参数
+    # 非流式查询 - 使用与curl命令相同的参数
     data = {
         "query": query,
         "mode": "hybrid",  # 前端使用的默认模式
         "history": [],  # 对话历史，前端使用history而不是conversation_history
         "include_references": True,
         "include_chunk_content": True,
-        "stream": False
+        "stream": False,
+        "top_k": 5,  # 检索的实体/关系数量
+        "chunk_top_k": 3,  # 检索的文本块数量
+        "enable_rerank": False  # 禁用重排序，与curl命令一致
     }
     
     try:

@@ -35,7 +35,18 @@ def main():
         "history": [],  # 对话历史，前端使用history而不是conversation_history
         "include_references": True,
         "include_chunk_content": True,
-        "stream": False
+        "stream": False,
+        # 上下文相关参数
+        "top_k": 10,  # 检索的实体/关系数量
+        "chunk_top_k": 5,  # 检索的文本块数量
+        "max_entity_tokens": 2000,  # 实体上下文token限制
+        "max_relation_tokens": 2000,  # 关系上下文token限制
+        "max_total_tokens": 8000,  # 总上下文token限制
+        "hl_keywords": ["RAGAS", "evaluation"],  # 高级关键词
+        "ll_keywords": ["metrics", "faithfulness"],  # 低级关键词
+        "enable_rerank": True,  # 启用重排序
+        "response_type": "Multiple Paragraphs",  # 响应格式
+        "user_prompt": "Please provide a detailed explanation with examples."  # 用户提示
     }
 
     try:
@@ -55,6 +66,105 @@ def main():
     except Exception as e:
         print(f"请求发生错误: {str(e)}")
 
+    print("\n\n=== 测试仅获取上下文（不生成回答） ===")
+    # 仅获取上下文示例 - 用于调试和评估
+    context_data = {
+        "query": "What is RAGAS",
+        "mode": "hybrid",
+        "only_need_context": True,  # 只返回上下文，不生成回答
+        "include_references": True,
+        "include_chunk_content": True,
+        "top_k": 5,  # 减少检索数量用于测试
+        "chunk_top_k": 3,  # 减少文本块数量
+        "hl_keywords": ["RAGAS"],  # 关键词筛选
+        "ll_keywords": ["evaluation", "metrics"]
+    }
+
+    try:
+        response = requests.post(f"{base_url}/query", headers=headers, json=context_data)
+
+        if response.status_code == 200:
+            result = response.json()
+            print("\n上下文信息:")
+            print(f"检索到的实体数量: {len(result.get('entities', []))}")
+            print(f"检索到的关系数量: {len(result.get('relationships', []))}")
+            print(f"检索到的文本块数量: {len(result.get('chunks', []))}")
+            
+            if result.get("references", []):
+                print("\n引用源:")
+                for ref in result["references"]:
+                    print(f"- {ref.get('file_path', '未知文件')}")
+                    if ref.get('content'):
+                        print(f"  内容预览: {ref['content'][0][:100]}...")
+        else:
+            print(f"请求失败，状态码: {response.status_code}")
+            print("错误信息:", response.text)
+
+    except Exception as e:
+        print(f"请求发生错误: {str(e)}")
+
+    print("\n\n=== 测试不同查询模式 ===")
+    # 测试不同模式的上下文检索效果
+    modes = ["local", "global", "hybrid", "mix"]
+    
+    for mode in modes:
+        print(f"\n--- {mode.upper()} 模式 ---")
+        mode_data = {
+            "query": "What is RAGAS",
+            "mode": mode,
+            "only_need_context": True,
+            "include_references": True,
+            "top_k": 3,
+            "chunk_top_k": 2
+        }
+        
+        try:
+            response = requests.post(f"{base_url}/query", headers=headers, json=mode_data)
+            
+            if response.status_code == 200:
+                result = response.json()
+                print(f"实体: {len(result.get('entities', []))}, "
+                      f"关系: {len(result.get('relationships', []))}, "
+                      f"文本块: {len(result.get('chunks', []))}")
+            else:
+                print(f"失败: {response.status_code}")
+                
+        except Exception as e:
+            print(f"错误: {str(e)}")
+
+    print("\n\n=== 测试关键词增强查询 ===")
+    # 使用关键词增强上下文检索
+    keyword_data = {
+        "query": "evaluation metrics for RAG systems",
+        "mode": "hybrid",
+        "hl_keywords": ["RAG", "evaluation", "metrics", "faithfulness", "relevance"],
+        "ll_keywords": ["precision", "recall", "accuracy"],
+        "include_references": True,
+        "include_chunk_content": True,
+        "top_k": 8,
+        "chunk_top_k": 5,
+        "user_prompt": "Focus on quantitative metrics and evaluation methodologies."
+    }
+
+    try:
+        response = requests.post(f"{base_url}/query", headers=headers, json=keyword_data)
+
+        if response.status_code == 200:
+            result = response.json()
+            print("\n回答:", result["response"])
+            if result.get("references", []):
+                print(f"\n引用源数量: {len(result['references'])}")
+                for i, ref in enumerate(result["references"][:3]):  # 只显示前3个引用
+                    print(f"- {ref.get('file_path', '未知文件')}")
+                    if ref.get('content'):
+                        print(f"  内容: {ref['content'][0][:150]}...")
+        else:
+            print(f"请求失败，状态码: {response.status_code}")
+            print("错误信息:", response.text)
+
+    except Exception as e:
+        print(f"请求发生错误: {str(e)}")
+
     print("\n\n=== 测试流式查询 ===")
     # 流式查询示例 - 匹配前端模式
     stream_data = {
@@ -66,7 +176,18 @@ def main():
         "system_prompt": None,  # 系统提示
         "chunk_top_k": None,  # 检索文本块数量
         "temperature": None,  # LLM生成随机性
-        "stream": True
+        "stream": True,
+        # 上下文相关参数
+        "top_k": 10,  # 检索的实体/关系数量
+        "chunk_top_k": 5,  # 检索的文本块数量
+        "max_entity_tokens": 2000,  # 实体上下文token限制
+        "max_relation_tokens": 2000,  # 关系上下文token限制
+        "max_total_tokens": 8000,  # 总上下文token限制
+        "hl_keywords": ["RAGAS", "evaluation"],  # 高级关键词
+        "ll_keywords": ["metrics", "faithfulness"],  # 低级关键词
+        "enable_rerank": True,  # 启用重排序
+        "response_type": "Multiple Paragraphs",  # 响应格式
+        "user_prompt": "Please provide a detailed explanation with examples."  # 用户提示
     }
 
     try:

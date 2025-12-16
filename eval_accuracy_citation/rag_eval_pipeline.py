@@ -1,6 +1,7 @@
 import sys
 import os
 import json
+import asyncio
 from datetime import datetime
 import numpy as np
 
@@ -108,7 +109,26 @@ async def run_eval_pipeline(line_number=None, output_file=None, rag=None):
             print("\n2. 调用LightRAG服务器获取问答结果...")
             query = question_data['q']
             response_content, references_text, references_list = await get_response(query, rag=rag)
-            print("   成功获取LightRAG问答结果")
+            print(f"   成功获取LightRAG问答结果")
+            print(f"   回答长度: {len(response_content)} 字符")
+            print(f"   参考文献数量: {len(references_list)}")
+            
+            # 调试：检查参考文献结构
+            if references_list:
+                print(f"   第一个参考文献结构:")
+                first_ref = references_list[0]
+                print(f"     类型: {type(first_ref)}")
+                print(f"     键: {list(first_ref.keys()) if isinstance(first_ref, dict) else '不是字典'}")
+                if isinstance(first_ref, dict) and 'content' in first_ref:
+                    content = first_ref['content']
+                    if isinstance(content, list):
+                        print(f"     内容: 列表，{len(content)} 项")
+                    else:
+                        print(f"     内容: {str(content)[:100]}...")
+                else:
+                    print(f"     无内容字段")
+            else:
+                print("   警告：参考文献列表为空！")
             
             # 4. 调用评测函数进行评分
             print("\n3. 调用评测函数进行评分...")
@@ -138,15 +158,26 @@ async def run_eval_pipeline(line_number=None, output_file=None, rag=None):
             contexts = []
             retrieved_contexts = []
             if references_list:
-                for ref in references_list:
+                print(f"   开始构建contexts，参考文献数量: {len(references_list)}")
+                for i, ref in enumerate(references_list):
                     if 'content' in ref:
                         content = ref['content']
+                        print(f"     参考文献 {i+1}: 找到内容字段，类型: {type(content)}")
                         if isinstance(content, list):
                             contexts.extend(content)
                             retrieved_contexts.extend(content)
+                            print(f"       添加 {len(content)} 项到contexts")
                         else:
                             contexts.append(content)
                             retrieved_contexts.append(content)
+                            print(f"       添加 1 项到contexts")
+                    else:
+                        print(f"     参考文献 {i+1}: 无内容字段，可用键: {list(ref.keys())}")
+            else:
+                print("   警告：无参考文献，contexts将为空")
+            
+            print(f"   最终contexts数量: {len(contexts)}")
+            print(f"   最终retrieved_contexts数量: {len(retrieved_contexts)}")
             
             # 7. 构建标准格式的结果项
             detailed_item = {
@@ -256,7 +287,7 @@ if __name__ == "__main__":
         output_file = sys.argv[2]
     
     # 运行评测流程
-    result = run_eval_pipeline(line_number=line_number, output_file=output_file)
+    result = asyncio.run(run_eval_pipeline(line_number=line_number, output_file=output_file))
     
     # 输出结果摘要
     print(f"\n=== 评测完成摘要 ===")

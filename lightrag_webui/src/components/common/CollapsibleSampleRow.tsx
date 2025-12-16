@@ -1,8 +1,8 @@
-import { ensureArray, extractRefsFromText, getSampleStatus } from '@/lib/utils'
+import { extractRefsFromText, getSampleStatus } from '@/lib/utils'
 import { EvalSample } from '@/types'
-import { ChevronRight, Bot, UserCheck, FileSearch, FileText, ChevronLeft } from 'lucide-react'
+import { ChevronRight, Bot, UserCheck, FileSearch, ChevronLeft } from 'lucide-react'
 import { DetailScoreBadges } from './DetailedScoreBadges'
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import InlineTooltip from './InlineTooltip'
@@ -15,14 +15,6 @@ export const CollapsibleSampleRow = ({ sample }: CollapsibleSampleRowProps) => {
   const status = sample.metrics ? getSampleStatus(sample.metrics) : undefined
   const isPass = status === 'pass'
   const [isExpanded, setIsExpanded] = useState(false)
-
-  const [activeCitationId, setActiveCitationId] = useState<number | null>(null)
-
-  const retrievedContexts = useMemo(
-    () => ensureArray(sample.retrieved_context),
-    [sample.retrieved_context]
-  )
-  const referenceContexts = useMemo(() => ensureArray(sample.contexts), [sample.contexts])
 
   useEffect(() => {
     if (isExpanded) {
@@ -103,64 +95,47 @@ export const CollapsibleSampleRow = ({ sample }: CollapsibleSampleRowProps) => {
                 <AnswerSection title="AI 回答" icon={Bot} text={sample.answer} color="blue" />
 
                 <AnswerSection
-                  title="预设回答"
+                  title="标准答案"
                   icon={UserCheck}
-                  text={sample.reference || ''}
+                  text={sample.ground_truth || sample.reference || ''}
                   color="gray"
                 />
               </section>
 
-              <section className="grid grid-cols-1 gap-6 border-t border-gray-100 pt-4 lg:grid-cols-2">
-                <div className="flex flex-col">
-                  <div className="mb-3 flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-sm font-bold text-purple-700">
-                      <FileSearch className="h-4 w-4" />
-                      AI 引用上下文
-                    </div>
-                    {activeCitationId && (
-                      <button
-                        onClick={() => setActiveCitationId(null)}
-                        className="px-2 py-1 text-xs text-purple-600 hover:text-purple-800 hover:underline"
-                      >
-                        清除高亮
-                      </button>
-                    )}
+              {sample.reasoning && (
+                <section className="border-t border-gray-100 pt-4">
+                  <div className="mb-3 flex items-center gap-2 text-sm font-bold text-indigo-700">
+                    <FileSearch className="h-4 w-4" />
+                    评估理由
                   </div>
-
-                  <div className="max-h-[300px] overflow-y-auto pr-2 [-ms-overflow-style:'none'] [scrollbar-width:'none'] [&::-webkit-scrollbar]:hidden">
-                    {retrievedContexts.length > 0 ? (
-                      retrievedContexts.map((ctx, idx) => {
-                        return <ContextCard key={idx} content={ctx} index={idx} type="retrieved" />
-                      })
-                    ) : (
-                      <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-100 py-8 text-gray-400">
-                        <FileSearch className="mb-2 h-5 w-5 opacity-20" />
-                        <span className="text-xs">无检索上下文</span>
+                  <div className="space-y-3">
+                    {sample.reasoning.faithfulness && (
+                      <div className="rounded-lg border border-indigo-100 bg-indigo-50/30 p-3">
+                        <div className="text-xs font-medium text-indigo-700 mb-1">忠实度</div>
+                        <div className="text-sm text-gray-700">{sample.reasoning.faithfulness}</div>
+                      </div>
+                    )}
+                    {sample.reasoning.answer_relevancy && (
+                      <div className="rounded-lg border border-blue-100 bg-blue-50/30 p-3">
+                        <div className="text-xs font-medium text-blue-700 mb-1">答案相关性</div>
+                        <div className="text-sm text-gray-700">{sample.reasoning.answer_relevancy}</div>
+                      </div>
+                    )}
+                    {sample.reasoning.context_recall && (
+                      <div className="rounded-lg border border-green-100 bg-green-50/30 p-3">
+                        <div className="text-xs font-medium text-green-700 mb-1">上下文召回率</div>
+                        <div className="text-sm text-gray-700">{sample.reasoning.context_recall}</div>
+                      </div>
+                    )}
+                    {sample.reasoning.context_precision && (
+                      <div className="rounded-lg border border-purple-100 bg-purple-50/30 p-3">
+                        <div className="text-xs font-medium text-purple-700 mb-1">上下文精确率</div>
+                        <div className="text-sm text-gray-700">{sample.reasoning.context_precision}</div>
                       </div>
                     )}
                   </div>
-                </div>
-
-                <div className="flex flex-col">
-                  <div className="mb-3 flex items-center gap-2 text-sm font-bold text-gray-600">
-                    <FileText className="h-4 w-4" />
-                    预设上下文
-                  </div>
-
-                  <div className="max-h-[300px] overflow-y-auto pr-2 [-ms-overflow-style:'none'] [scrollbar-width:'none'] [&::-webkit-scrollbar]:hidden">
-                    {referenceContexts.length > 0 ? (
-                      referenceContexts.map((ctx, idx) => (
-                        <ContextCard key={idx} content={ctx} index={idx} type="reference" />
-                      ))
-                    ) : (
-                      <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-100 py-8 text-gray-400">
-                        <FileText className="mb-2 h-5 w-5 opacity-20" />
-                        <span className="text-xs">无参考上下文</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </section>
+                </section>
+              )}
             </div>
           </div>
         </div>
@@ -264,100 +239,6 @@ const AnswerSection = ({
           {text && MarkdownRenderers(processed)}
           {!text && <span className="text-xs text-gray-400 italic">暂无内容</span>}
         </div>
-      </div>
-    </div>
-  )
-}
-
-const ContextCard = ({
-  content,
-  index,
-  type
-}: {
-  content: string
-  index: number
-  type: 'retrieved' | 'reference'
-}) => {
-  const [expanded, setExpanded] = useState(false)
-
-  return (
-    <div
-      id={`context-${type}-${index + 1}`}
-      onClick={() => setExpanded(!expanded)}
-      className="group relative mb-2 cursor-pointer rounded-lg border border-gray-200 bg-white transition-all duration-300 hover:border-indigo-200 hover:shadow-sm"
-    >
-      <div className="flex items-start gap-2 p-2">
-        <div
-          className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded font-mono text-[10px] ${type === 'retrieved' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-600'} `}
-        >
-          {index + 1}
-        </div>
-
-        <div className="min-w-0 flex-1">
-          <div
-            className={`text-sm leading-relaxed text-gray-600 ${expanded ? '' : 'line-clamp-1'}`}
-          >
-            <ReactMarkdown
-              remarkPlugins={[remarkGfm]}
-              components={{
-                h1: ({ children, ...props }: any) => (
-                  <h1 className="mt-1 mb-1 text-sm font-bold text-gray-900" {...props}>
-                    {children}
-                  </h1>
-                ),
-                h2: ({ children, ...props }: any) => (
-                  <h2 className="mt-1 mb-1 text-sm font-bold text-gray-900" {...props}>
-                    {children}
-                  </h2>
-                ),
-                h3: ({ children, ...props }: any) => (
-                  <h3 className="mt-1 mb-1 text-sm font-bold text-gray-800" {...props}>
-                    {children}
-                  </h3>
-                ),
-                h4: ({ children, ...props }: any) => (
-                  <h4 className="mt-1 mb-1 text-sm font-bold text-gray-800" {...props}>
-                    {children}
-                  </h4>
-                ),
-                h5: ({ children, ...props }: any) => (
-                  <h5 className="mt-1 mb-1 text-sm font-semibold text-gray-800" {...props}>
-                    {children}
-                  </h5>
-                ),
-                h6: ({ children, ...props }: any) => (
-                  <h6 className="mt-1 mb-1 text-sm font-semibold text-gray-800" {...props}>
-                    {children}
-                  </h6>
-                ),
-                a: ({ href, children, ...props }: any) => {
-                  if (typeof href === 'string' && href.startsWith('#ref-')) {
-                    const parts = href.split('::')
-                    const encoded = parts[1] || ''
-                    let docName = ''
-                    try {
-                      docName = encoded ? decodeURIComponent(encoded) : ''
-                    } catch {
-                      docName = encoded
-                    }
-                    return <InlineTooltip label={<>[{children}]</>} content={docName} />
-                  }
-                  return (
-                    <a href={href} {...props}>
-                      {children}
-                    </a>
-                  )
-                }
-              }}
-            >
-              {content}
-            </ReactMarkdown>
-          </div>
-        </div>
-
-        <ChevronRight
-          className={`h-3 w-3 text-gray-300 transition-transform ${expanded ? '-rotate-90' : 'rotate-90'}`}
-        />
       </div>
     </div>
   )
