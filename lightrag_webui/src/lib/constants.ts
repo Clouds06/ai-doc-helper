@@ -1,7 +1,7 @@
 import { RagasMetricKey } from '@/types'
 import { Target, BookOpenCheck, SearchCheck, FilterIcon } from 'lucide-react'
 
-export const backendBaseUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:9621'
+export const backendBaseUrl = ''
 
 export const healthCheckInterval = 15 // seconds
 
