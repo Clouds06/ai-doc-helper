@@ -110,15 +110,13 @@ const PromptPanel: React.FC<PromptPanelProps> = ({ value, onChange }) => {
     [customTemplates, presetTemplates]
   )
 
-  // 自动匹配模版设置 ID
+  // 自动匹配模版
   useEffect(() => {
-    if (!currentTemplateId && value) {
-      const matched = allTemplates.find((tpl) => tpl.content === value)
-      if (matched) {
-        setCurrentTemplateId(matched.id)
-      }
+    const matched = allTemplates.find((tpl) => tpl.content === value)
+    if (matched) {
+      setCurrentTemplateId(matched.id)
     }
-  }, [currentTemplateId, value, allTemplates])
+  }, [value, allTemplates])
 
   const selectedTemplate = useMemo(
     () => allTemplates.find((tpl) => tpl.id === currentTemplateId) ?? null,
@@ -323,7 +321,10 @@ const PromptPanel: React.FC<PromptPanelProps> = ({ value, onChange }) => {
         <div className="absolute right-3 bottom-2 flex items-center gap-2">
           {value && (
             <button
-              onClick={() => onChange('')}
+              onClick={() => {
+                onChange('')
+                setCurrentTemplateId(null)
+              }}
               className="flex items-center gap-1 rounded-full bg-white/80 px-2 py-1 text-[10px] text-gray-400 hover:text-red-500"
             >
               <Eraser className="h-3 w-3" />
